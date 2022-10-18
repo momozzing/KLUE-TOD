@@ -78,8 +78,11 @@ def inference(args) -> None:
     all_preds = []
     all_guids = []
     for batch in data_loader:
-        print(batch)
-
+        print("======================================")
+        print(len(batch[0]))
+        print(batch[0].cuda())
+        print(tokenizer.convert_ids_to_tokens(batch[0][28])) 
+        print("======================================")
 
         input_ids, segment_ids, input_masks, gating_ids, target_ids = [
             b.to(device) for b in batch[:-1]
