@@ -51,6 +51,8 @@ class WosDataModule(object):
         guids = [b.guid for b in batch]
         return input_ids, segment_ids, input_masks, gating_ids, target_ids, guids
 
+    #################todo data collate_fn 수정 
+
     def get_dataloader(
         self,
         file_path: str,

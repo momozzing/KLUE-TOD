@@ -78,11 +78,31 @@ def inference(args) -> None:
     all_preds = []
     all_guids = []
     for batch in data_loader:
-        print("======================================")
+        print("===============user======================")
         print(len(batch[0]))
         print(batch[0].cuda())
         print(tokenizer.convert_ids_to_tokens(batch[0][28])) 
-        print("======================================")
+        print("=================seg=====================")
+        print(len(batch[1]))
+        print(batch[1].cuda())
+        print(tokenizer.convert_ids_to_tokens(batch[1][28])) 
+        print("=================seg=====================")
+        print(len(batch[2]))
+        print(batch[2].cuda())
+        print(tokenizer.convert_ids_to_tokens(batch[2][28])) 
+        print("=================seg=====================")
+        print(len(batch[3]))
+        print(batch[3].cuda())
+        print(tokenizer.convert_ids_to_tokens(batch[3][28])) 
+        print("=================seg=====================")
+        # print(len(batch[4]))
+        # print(batch[4].cuda())
+        # print(tokenizer.convert_ids_to_tokens(batch[4][28])) 
+        print("=================seg=====================")
+        print(len(batch[5]))
+        # print(batch[5].cuda())
+        print(tokenizer.convert_ids_to_tokens(batch[5][28])) 
+        print("=================seg=====================")
 
         input_ids, segment_ids, input_masks, gating_ids, target_ids = [
             b.to(device) for b in batch[:-1]
