@@ -62,9 +62,6 @@ class WosProcessor(object):
         self.tokenizer = tokenizer
         self.slot_meta = []
         self.max_seq_length = 300
-        # self.pad_token_id, self.sos_b_token_id, self.eos_b_token_id, self.sos_a_token_id, self.eos_a_token_id, \
-        # self.sos_r_token_id, self.eos_r_token_id = self.tokenizer.convert_tokens_to_ids(['<PAD>', '<sos_b>', 
-        #     '<eos_b>', '<sos_a>', '<eos_a>', '<sos_r>','<eos_r>'])
     def get_dataset(self, file_path: str, ontology_path: str) -> Dataset:
         # Read ontology file and store the slots
         _, self.slot_meta = self.build_slot_from_ontology(ontology_path)
@@ -98,6 +95,8 @@ class WosProcessor(object):
         dialogue_id = dialogue["guid"]
         examples = []
         history = []
+        pre_state = []
+        current_state = []
         d_idx = 0
         for idx, turn in enumerate(dialogue["dialogue"]):
             if turn["role"] != "user":
@@ -106,19 +105,29 @@ class WosProcessor(object):
             if idx:
                 sys_utter = "<sos_r>" + dialogue["dialogue"][idx - 1]["text"] + "<eos_r>"
                 response = "<sos_r>" + dialogue["dialogue"][idx + 1]["text"] + "<eos_r>"
+                pre_state.append(dialogue["dialogue"][idx-2]['state'])
+                current_state.append(dialogue["dialogue"][idx]['state'])
             else:
                 sys_utter = ""
                 response = "<sos_r>" + dialogue["dialogue"][idx + 1]["text"] + "<eos_r>"
+                pre_state.append(dialogue["dialogue"][idx]['state'])
+                current_state.append(dialogue["dialogue"][idx]['state'])
 
             user_utter = "<sos_u>" + turn["text"] + "<eos_u>"
-            state = ["<sos_b>"] + turn["state"] + ["<eos_b>"]
+
+            for pre, current in zip(pre_state, current_state):  ## 현재 턴의 DST 정보 얻기. 
+                state = ["<sos_b>"] + list(set(current) - set(pre)) + ["<sos_b>"]
+                # if len(state) == 0:
+                #     state = current                      -> 이거 없으면 DST정보가 같으면 DSTlabel없음. 
+
+
             context = deepcopy(history)
             examples.append(
                 WosInputExample(
                     guid=f"{dialogue_id}-{d_idx}",
                     dialogue_history=context + [sys_utter, user_utter], ## dialogue history
                     # current_turn=[sys_utter, user_utter],
-                    dialogue_state=state,                                ## DST label
+                    dialogue_state=state,                   ## DST label
                     system_response = response                          ## susten response
                 )
             )
