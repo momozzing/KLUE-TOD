@@ -11,6 +11,7 @@ import tarfile
 from argparse import Namespace
 from transformers import AutoTokenizer, AutoModelForMaskedLM, AutoModelForCausalLM
 import torch
+from torch.optim import AdamW
 from dataloader import WosDataModule
 from model import WosBaselineModel
 from transformers import AutoConfig, AutoTokenizer
@@ -58,10 +59,11 @@ def inference(args) -> None:
 
     # load data
     kwargs = (
-        {"num_workers": num_gpus, "pin_memory": True}
+        {"num_workers": 8, "pin_memory": True}
         if torch.cuda.is_available()
         else {}
     )
+    
     data_module = WosDataModule(args, tokenizer)
     data_loader = data_module.get_dataloader(
         test_filepath, ontology_filepath, args.batch_size, shuffle=False, **kwargs
@@ -71,12 +73,11 @@ def inference(args) -> None:
 
     # load model
     model = AutoModelForCausalLM.from_pretrained("skt/ko-gpt-trinity-1.2B-v0.5").to(device)
-    model.eval()
     # if num_gpus > 1:
     #     model = torch.nn.DataParallel(model)
-
-    all_preds = []
-    all_guids = []
+    optimizer = AdamW(params=model.parameters(),
+            lr=3e-5, weight_decay=3e-7
+        )
     for batch in data_loader:
     #     print("===============user======================")
     #     print(len(batch[0]))
@@ -107,32 +108,76 @@ def inference(args) -> None:
 
 ############################ todo train, eval 
 
-        input_ids, segment_ids, input_masks, gating_ids, target_ids = [
+        input_ids, input_masks, target_ids = [
             b.to(device) for b in batch[:-1]
         ]
-        guids = batch[-1]
 
-        all_point_outputs, all_gate_outputs = model(input_ids, segment_ids, input_masks)
+   
 
-        _, generated_ids = all_point_outputs.max(-1)
-        _, gated_ids = all_gate_outputs.max(-1)
+        epochs = 10
+        for epoch in range(epochs):
+            model.train()
+            output = model.forward(
+                input_ids=input_ids,
+                attention_mask=input_masks,
+                labels=target_ids,
+            )
 
-        preds = [
-            args.processor.recover_state(gate, gen)
-            for gate, gen in zip(gated_ids.tolist(), generated_ids.tolist())
-        ]
-        all_preds.extend(preds)
-        all_guids.extend(guids)
+            loss = output.loss
+            loss.backward()        
+            optimizer.step()
 
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+            print({"loss": loss.item()})
 
-    pred_dict = []
-    for guid, pred in zip(all_guids, all_preds):
-        item = {"guid": guid, "pred": pred}
-        pred_dict.append(item)
-    with open(os.path.join(output_dir, WOS_OUTPUT), "w") as f:
-        json.dump(pred_dict, f, ensure_ascii=False, indent=4)
+            # with torch.no_grad():
+            #     model.eval()
+            #     eval_out = model.forward(
+            #         input_ids=input_ids,
+            #         attention_mask=attention_mask,
+            #         labels=input_ids,
+            #     )
+
+            #     eval_loss = eval_out.loss
+
+            #     print({"eval_loss": eval_loss.item()})          
+            #     print({"epoch": epoch+1})
+            #     torch.save(model.state_dict(), f"model_save/GPT-2_fintuing-{epoch+1}.pt")
+
+
+
+
+
+
+
+
+
+
+
+
+
+    #     guids = batch[-1]
+
+    #     all_point_outputs, all_gate_outputs = model(input_ids, segment_ids, input_masks)
+
+    #     _, generated_ids = all_point_outputs.max(-1)
+    #     _, gated_ids = all_gate_outputs.max(-1)
+
+    #     preds = [
+    #         args.processor.recover_state(gate, gen)
+    #         for gate, gen in zip(gated_ids.tolist(), generated_ids.tolist())
+    #     ]
+    #     all_preds.extend(preds)
+    #     all_guids.extend(guids)
+
+    # if not os.path.exists(output_dir):
+    #     os.makedirs(output_dir)
+
+    # pred_dict = []
+    # for guid, pred in zip(all_guids, all_preds):
+    #     item = {"guid": guid, "pred": pred}
+    #     pred_dict.append(item)
+    # with open(os.path.join(output_dir, WOS_OUTPUT), "w") as f:
+    #     json.dump(pred_dict, f, ensure_ascii=False, indent=4)
 
 
 def main():
@@ -141,7 +186,7 @@ def main():
     parser.add_argument(
         "--batch_size",
         type=int,
-        default=32,
+        default=2,
         metavar="N",
         help="input batch size for inference (default: 32)",
     )
