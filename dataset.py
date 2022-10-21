@@ -39,11 +39,7 @@ class WosInputExample:
 class WosInputFeature:
     guid: str
     input_id: List[int]
-    segment_id: List[int]
-    gating_id: List[int]
-    target_ids: Optional[Union[List[int], List[List[int]]]]
-
-
+    target_id: List[int]
 
 class WosDataset(Dataset):
     def __init__(self, features):
@@ -58,10 +54,12 @@ class WosDataset(Dataset):
 
 
 class WosProcessor(object):
-    def __init__(self, tokenizer):
+    def __init__(self, args, tokenizer):
+        self.args = args
         self.tokenizer = tokenizer
         self.slot_meta = []
         self.max_seq_length = 300
+        # self.dst = dst
     def get_dataset(self, file_path: str, ontology_path: str) -> Dataset:
         # Read ontology file and store the slots
         _, self.slot_meta = self.build_slot_from_ontology(ontology_path)
@@ -73,8 +71,8 @@ class WosProcessor(object):
         self.slot_meta = self.merge_slot_meta(slot_from_dials)
 
         examples = self._create_examples(file_path)
-        # features = self._convert_features(examples)
-        return examples
+        features = self._convert_features(examples)
+        return features
 
     @staticmethod
     def _create_examples(file_path: str) -> List[WosInputExample]:
@@ -200,109 +198,118 @@ class WosProcessor(object):
             return "%s-%s" % (dom, slot), value
         return dom, slot, value
 
-    # def _convert_features(
-    #     self, examples: List[WosInputExample]
-    # ) -> List[WosInputFeature]:
-    #     features = []
-    #     for example in examples:
-    #         feature = self._convert_example_to_feature(example)
-    #         if feature:
-    #             features.append(feature)
-    #     return features
+    def _convert_features(
+        self, examples: List[WosInputExample]
+    ) -> List[WosInputFeature]:
+        features = []
+        for example in examples:
+            feature = self._convert_example_to_feature(example)
+            if feature:
+                features.append(feature)
+        return features
 
-    # def _convert_example_to_feature(self, example: WosInputExample) -> WosInputFeature:
-    #     dialogue_context = " ; ".join(example.dialogue_history)
+    def _convert_example_to_feature(self, example: WosInputExample) -> WosInputFeature:
 
-    #     input_id = self.tokenizer.encode(dialogue_context, add_special_tokens=False)
-    #     len_input_id = len(input_id)
-    #     if len_input_id > self.max_seq_length - 2:
-    #         input_id = input_id[len_input_id - (self.max_seq_length - 2) :]
-    #         logger.info(
-    #             f"Truncate the context [{example.guid}]"
-    #             f"since the length of dialogue exceeds {self.max_seq_length - 2} < {len_input_id}"
-    #         )
-    #     input_id = (
-    #         [self.tokenizer.cls_token_id] + input_id + [self.tokenizer.sep_token_id]
-    #     )
-    #     segment_id = [0] * len(input_id)
+        # if self.dst:
+        dialogue_context = "".join(example.dialogue_history)
+        print(dialogue_context)
+        input_id = self.tokenizer.encode(dialogue_context, add_special_tokens=False)
+        len_input_id = len(input_id)
+        if len_input_id > self.args.max_seq_length - 2:
+            input_id = input_id[len_input_id - (self.args.max_seq_length - 2) :]
+            logger.info(
+                f"Truncate the context [{example.guid}]"
+                f"since the length of dialogue exceeds {self.args.max_seq_length - 2} < {len_input_id}"
+            )
+        input_id = (
+            [self.tokenizer.cls_token_id] + input_id + [self.tokenizer.sep_token_id]
+        )
 
-    #     target_ids = []
-    #     gating_id = []
-    #     state = self.convert_state_dict(example.dialogue_state)
-    #     for slot in self.slot_meta:
-    #         value = state.get(slot, "none")
-    #         target_id = self.tokenizer.encode(value, add_special_tokens=False)
-    #         len_target_id = len(target_id)
-    #         if len_target_id > self.max_seq_length - 1:
-    #             target_id = target_id[len_target_id - (self.max_seq_length - 1) :]
-    #             logger.info(
-    #                 f"Truncate the slot [{value}]"
-    #                 f"since the length of slot exceeds {self.max_seq_length - 1} < {len_target_id}"
-    #             )
-    #         target_id = target_id + [self.tokenizer.sep_token_id]
-    #         target_ids.append(target_id)
-    #     target_ids = self.pad_ids(target_ids, self.tokenizer.pad_token_id)
+        state = "".join(example.dialogue_state)
 
-    #     return WosInputFeature(
-    #         example.guid, input_id, segment_id, gating_id, target_ids
-    #     )
-
-    # @staticmethod
-    # def pad_ids(arrays, pad_idx, max_length=-1):
-    #     if max_length < 0:
-    #         max_length = max(list(map(len, arrays)))
-
-    #     arrays = [array + [pad_idx] * (max_length - len(array)) for array in arrays]
-    #     return arrays
-
-    # def convert_state_dict(self, state):
-    #     dic = {}
-    #     for slot in state:
-    #         s, v = self.split_slot(slot, get_domain_slot=True)
-    #         dic[s] = v
-    #     return dic
+        target_id = self.tokenizer.encode(state, add_special_tokens=False)
+        len_target_id = len(target_id)
+        if len_target_id > self.args.max_seq_length - 2:
+            target_id = target_id[len_target_id - (self.args.max_seq_length - 1) :]
+            logger.info(
+                f"Truncate the slot [{example.guid}]"
+                f"since the length of slot exceeds {self.args.max_seq_length - 1} < {len_target_id}"
+            )
+        target_id = target_id + [self.tokenizer.sep_token_id]
 
 
-from transformers import AutoConfig, AutoTokenizer
+        return WosInputFeature(
+            example.guid, input_id, target_id
+        )
 
-tokenizer = AutoTokenizer.from_pretrained("klue/roberta-large")
+    @staticmethod
+    def pad_ids(arrays, pad_idx, max_length=-1):
+        if max_length < 0:
+            max_length = max(list(map(len, arrays)))
 
-test_filename = 'data/wos-v1.1/wos-v1.1_dev.json'
-ontology_filename = 'data/wos-v1.1/ontology.json'
-dataset = WosProcessor(tokenizer)
-dataset = dataset.get_dataset(test_filename, ontology_filename)
-print(dataset)
+        arrays = [array + [pad_idx] * (max_length - len(array)) for array in arrays]
+        return arrays
+
+    def convert_state_dict(self, state):
+        dic = {}
+        for slot in state:
+            s, v = self.split_slot(slot, get_domain_slot=True)
+            dic[s] = v
+        return dic
 
 
-random_seed = 1234
-torch.manual_seed(random_seed)
-np.random.seed(random_seed)
-random.seed(random_seed)
-dist.init_process_group(backend="nccl")
-torch.cuda.set_device(torch.distributed.get_rank())
-os.environ["TOKENIZERS_PARALLELISM"] = "true"
+# from transformers import AutoConfig, AutoTokenizer
 
-parser = ArgumentParser()
-parser.add_argument("--deepspeed_config", type=str, default="ds_config.json")
-parser.add_argument("--local_rank", type=int)
-parser.add_argument("--epoch", default=20, type=int)
-parser.add_argument("--batch_size", default=16, type=int)
-args = parser.parse_args()
+# tokenizer = AutoTokenizer.from_pretrained("klue/roberta-large")
+# dst = True
+# test_filename = 'data/wos-v1.1/wos-v1.1_dev.json'
+# ontology_filename = 'data/wos-v1.1/ontology.json'
+# dataset = WosProcessor(tokenizer, dst)
+# dataset = dataset.get_dataset(test_filename, ontology_filename)
+# print(dataset)
 
-train_loader = DataLoader(
-    dataset,
-    batch_size=8,
-    num_workers=os.cpu_count() // dist.get_world_size(),    ## CPU workers들 최대로 학습.
-    drop_last=True,
-    pin_memory=False,
-    shuffle=False,
-    sampler=DistributedSampler(  ## 이거 사용 안하면 GPU 2개에 같은데이터 들어감. 꼭 샘플링해줘야함.
-        dataset,
-        shuffle=True,
-        drop_last=True,
-        seed=24,
-    ),
-)
 
-for i in train_loader:
-    print(i)
+# random_seed = 1234
+# torch.manual_seed(random_seed)
+# np.random.seed(random_seed)
+# random.seed(random_seed)
+# dist.init_process_group(backend="nccl")
+# torch.cuda.set_device(torch.distributed.get_rank())
+# os.environ["TOKENIZERS_PARALLELISM"] = "true"
+
+# parser = ArgumentParser()
+# parser.add_argument("--deepspeed_config", type=str, default="ds_config.json")
+# parser.add_argument("--local_rank", type=int)
+# parser.add_argument("--epoch", default=20, type=int)
+# parser.add_argument("--batch_size", default=16, type=int)
+# args = parser.parse_args()
+
+# train_loader = DataLoader(
+#     dataset,
+#     batch_size=8,
+#     num_workers=os.cpu_count() // dist.get_world_size(),    ## CPU workers들 최대로 학습.
+#     drop_last=True,
+#     pin_memory=False,
+#     shuffle=False,
+#     sampler=DistributedSampler(  ## 이거 사용 안하면 GPU 2개에 같은데이터 들어감. 꼭 샘플링해줘야함.
+#         dataset,
+#         shuffle=True,
+#         drop_last=True,
+#         seed=24,
+#     ),
+# )
+
+# for i in train_loader:
+#         print("===============user======================")
+#         print(len(i[0]))
+#         print(i[0].cuda())
+#         print(tokenizer.convert_ids_to_tokens(i[0][28])) 
+#         print("=================seg=====================")
+#         print(len(i[1]))
+#         print(i[1].cuda())
+#         print(tokenizer.convert_ids_to_tokens(i[1][28])) 
+#         print("=================seg=====================")
+#         print(len(i[2]))
+#         print(i[2].cuda())
+#         print(tokenizer.convert_ids_to_tokens(i[2][28])) 
+#         print("=================seg=====================")

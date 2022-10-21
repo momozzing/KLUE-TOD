@@ -9,7 +9,7 @@ import json
 import os
 import tarfile
 from argparse import Namespace
-from transformers import AutoTokenizer, AutoModelForMaskedLM
+from transformers import AutoTokenizer, AutoModelForMaskedLM, AutoModelForCausalLM
 import torch
 from dataloader import WosDataModule
 from model import WosBaselineModel
@@ -54,7 +54,7 @@ def inference(args) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # load tokenizer
-    tokenizer = AutoTokenizer.from_pretrained("klue/roberta-large")
+    tokenizer = AutoTokenizer.from_pretrained("skt/ko-gpt-trinity-1.2B-v0.5")
 
     # load data
     kwargs = (
@@ -70,7 +70,7 @@ def inference(args) -> None:
     args.processor = data_module.processor
 
     # load model
-    model = AutoModelForMaskedLM.from_pretrained("klue/roberta-large").to(device)
+    model = AutoModelForCausalLM.from_pretrained("skt/ko-gpt-trinity-1.2B-v0.5").to(device)
     model.eval()
     # if num_gpus > 1:
     #     model = torch.nn.DataParallel(model)
@@ -78,31 +78,34 @@ def inference(args) -> None:
     all_preds = []
     all_guids = []
     for batch in data_loader:
-        print("===============user======================")
-        print(len(batch[0]))
-        print(batch[0].cuda())
-        print(tokenizer.convert_ids_to_tokens(batch[0][28])) 
-        print("=================seg=====================")
-        print(len(batch[1]))
-        print(batch[1].cuda())
-        print(tokenizer.convert_ids_to_tokens(batch[1][28])) 
-        print("=================seg=====================")
-        print(len(batch[2]))
-        print(batch[2].cuda())
-        print(tokenizer.convert_ids_to_tokens(batch[2][28])) 
-        print("=================seg=====================")
-        print(len(batch[3]))
-        print(batch[3].cuda())
-        print(tokenizer.convert_ids_to_tokens(batch[3][28])) 
-        print("=================seg=====================")
-        # print(len(batch[4]))
-        # print(batch[4].cuda())
-        # print(tokenizer.convert_ids_to_tokens(batch[4][28])) 
-        print("=================seg=====================")
-        print(len(batch[5]))
-        # print(batch[5].cuda())
-        print(tokenizer.convert_ids_to_tokens(batch[5][28])) 
-        print("=================seg=====================")
+    #     print("===============user======================")
+    #     print(len(batch[0]))
+    #     print(batch[0].cuda())
+    #     print(tokenizer.convert_ids_to_tokens(batch[0][28])) 
+    #     print("=================seg=====================")
+    #     print(len(batch[1]))
+    #     print(batch[1].cuda())
+    #     print(tokenizer.convert_ids_to_tokens(batch[1][28])) 
+    #     print("=================seg=====================")
+    #     print(len(batch[2]))
+    #     print(batch[2].cuda())
+    #     print(tokenizer.convert_ids_to_tokens(batch[2][28])) 
+    #     print("=================seg=====================")
+    #     print(len(batch[3]))
+    #     print(batch[3].cuda())
+    #     print(tokenizer.convert_ids_to_tokens(batch[3][28])) 
+    #     print("=================seg=====================")
+    #     # print(len(batch[4]))
+    #     # print(batch[4].cuda())
+    #     # print(tokenizer.convert_ids_to_tokens(batch[4][28])) 
+    #     print("=================seg=====================")
+    #     print(len(batch[5]))
+    #     # print(batch[5].cuda())
+    #     print(tokenizer.convert_ids_to_tokens(batch[5][28])) 
+    #     print("=================seg=====================")
+
+
+############################ todo train, eval 
 
         input_ids, segment_ids, input_masks, gating_ids, target_ids = [
             b.to(device) for b in batch[:-1]

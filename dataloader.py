@@ -37,19 +37,15 @@ class WosDataModule(object):
                 [b.input_id for b in batch], self.tokenizer.pad_token_id
             )
         )
-        segment_ids = torch.LongTensor(
+        target_ids = torch.LongTensor(
             self.processor.pad_ids(
-                [b.segment_id for b in batch], self.tokenizer.pad_token_type_id
+                [b.target_id for b in batch], self.tokenizer.pad_token_id
             )
         )
         input_masks = input_ids.ne(self.tokenizer.pad_token_id)
 
-        gating_ids = torch.LongTensor([b.gating_id for b in batch])
-        target_ids = self.pad_id_of_matrix(
-            [torch.LongTensor(b.target_ids) for b in batch], self.tokenizer.pad_token_id
-        )
         guids = [b.guid for b in batch]
-        return input_ids, segment_ids, input_masks, gating_ids, target_ids, guids
+        return input_ids, input_masks, target_ids, guids
 
     #################todo data collate_fn 수정 
 
@@ -68,3 +64,6 @@ class WosDataModule(object):
             collate_fn=self.collate_fn,
             **kwargs
         )
+
+
+
