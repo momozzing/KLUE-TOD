@@ -56,10 +56,14 @@ def inference(args) -> None:
 
     # load tokenizer
     tokenizer = AutoTokenizer.from_pretrained("skt/ko-gpt-trinity-1.2B-v0.5")
+    SPECIAL_TOKENS = ['<sos_u>', '<sos_r>', '<sos_b>', '<sos_a>', '<eos_u>', '<eos_r>', '<eos_b>', 
+                '<eos_a>', '<sos_context>', '<eos_context>']
+
+    tokenizer.add_tokens(SPECIAL_TOKENS)
 
     # load data
     kwargs = (
-        {"num_workers": 8, "pin_memory": True}
+        {"num_workers": 1, "pin_memory": True}
         if torch.cuda.is_available()
         else {}
     )
@@ -73,6 +77,8 @@ def inference(args) -> None:
 
     # load model
     model = AutoModelForCausalLM.from_pretrained("skt/ko-gpt-trinity-1.2B-v0.5").to(device)
+    model.resize_token_embeddings(len(tokenizer)) 
+
     # if num_gpus > 1:
     #     model = torch.nn.DataParallel(model)
     optimizer = AdamW(params=model.parameters(),
@@ -112,15 +118,14 @@ def inference(args) -> None:
             b.to(device) for b in batch[:-1]
         ]
 
-   
-
         epochs = 10
         for epoch in range(epochs):
             model.train()
+            optimizer.zero_grad()
             output = model.forward(
                 input_ids=input_ids,
                 attention_mask=input_masks,
-                labels=target_ids,
+                labels=input_ids,
             )
 
             loss = output.loss
@@ -186,7 +191,7 @@ def main():
     parser.add_argument(
         "--batch_size",
         type=int,
-        default=2,
+        default=4,
         metavar="N",
         help="input batch size for inference (default: 32)",
     )
@@ -226,7 +231,7 @@ def main():
     )
     parser.add_argument(
         "--max_seq_length",
-        default=510,
+        default=768,
         type=int,
         help="The maximum total input sequence length after tokenization. Seqences longer "
         "than this will be truncated, sequences shorter will be padded. (default: 510)",
@@ -238,7 +243,7 @@ def main():
         help="Random seed"
     )
     # model-specific arguments
-    parser = WosBaselineModel.add_arguments(parser)
+    # parser = WosBaselineModel.add_arguments(parser)
 
     args = parser.parse_args()
 

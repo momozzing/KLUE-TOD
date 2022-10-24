@@ -14,9 +14,11 @@ import torch
 import numpy as np
 import random
 from argparse import ArgumentParser
+
 from torch.utils.data import Dataset
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class WosInputExample:
@@ -50,11 +52,13 @@ class WosDataset(Dataset):
     def __getitem__(self, idx):
         return self.features[idx]
 
+
 class WosProcessor(object):
     def __init__(self, args, tokenizer):
         self.args = args
         self.tokenizer = tokenizer
         self.slot_meta = []
+        self.max_seq_length = 300
         # self.dst = dst
     def get_dataset(self, file_path: str, ontology_path: str) -> Dataset:
         # Read ontology file and store the slots
@@ -69,19 +73,6 @@ class WosProcessor(object):
         examples = self._create_examples(file_path)
         features = self._convert_features(examples)
         return features
-
-    def get_example_dataset(self, file_path: str, ontology_path: str) -> Dataset:
-        # Read ontology file and store the slots
-        _, self.slot_meta = self.build_slot_from_ontology(ontology_path)
-
-        # Extract slots from a given dialogue and merge with ontology slots
-        with open(file_path, "r", encoding="utf-8") as dial_file:
-            dials = json.load(dial_file)
-        slot_from_dials = self.build_slot_meta(dials)
-        self.slot_meta = self.merge_slot_meta(slot_from_dials)
-
-        examples = self._create_examples(file_path)
-        return examples
 
     @staticmethod
     def _create_examples(file_path: str) -> List[WosInputExample]:
@@ -130,8 +121,9 @@ class WosProcessor(object):
                 # if len(state) == 0:
                 #     state = current                      -> 이거 없으면 DST정보가 같으면 DSTlabel없음. 
 
+
             context = deepcopy(history)
-            dialogue_history = ['<sos_context>'] + context + [sys_utter, user_utter] + ['<eos_context>']
+            dialogue_history = context + [sys_utter, user_utter]
             examples.append(
                 WosInputExample(
                     guid=f"{dialogue_id}-{d_idx}",
@@ -159,6 +151,8 @@ class WosProcessor(object):
         system_response=' 네. 예약되었습니다. 도착하시면 예약 번호 NKZE8를 말씀해주세요. 냥이하우스는 시청역에서 도보 3분 거리에 위치해 있습니다.', 
         dialogue_state=['숙소-가격대-dontcare', '숙소-종류-게스트 하우스', '숙소-지역-서울 중앙', '숙소-도보 가능-yes', '숙소-예약 요일-수요일', '숙소-예약 명수-3', '숙소-예약 기간-3', '숙소-이름-냥이하우스']),
         '''
+
+
 
     def merge_slot_meta(self, slot_from_dial: List[str]) -> List[str]:
         exist_slot_set = set(self.slot_meta)
@@ -222,30 +216,31 @@ class WosProcessor(object):
 
         # if self.dst:
         dialogue_context = "".join(example.dialogue_history)
-        state = "".join(example.dialogue_state)
-
         # print(dialogue_context)
-        input_id = self.tokenizer.encode(dialogue_context + state, add_special_tokens=False)
+        input_id = self.tokenizer.encode(dialogue_context, add_special_tokens=False)
         len_input_id = len(input_id)
-        if len_input_id > self.args.max_seq_length - 5:
-            input_id = input_id[len_input_id - (self.args.max_seq_length - 5) :]
+        if len_input_id > self.args.max_seq_length - 2:
+            input_id = input_id[len_input_id - (self.args.max_seq_length - 2) :]
             logger.info(
                 f"Truncate the context [{example.guid}]"
-                f"since the length of dialogue exceeds {self.args.max_seq_length - 5} < {len_input_id}"
+                f"since the length of dialogue exceeds {self.args.max_seq_length - 2} < {len_input_id}"
             )
-        input_id = (input_id)
+        input_id = (
+            [self.tokenizer.cls_token_id] + input_id + [self.tokenizer.sep_token_id]
+        )
 
         state = "".join(example.dialogue_state)
 
         target_id = self.tokenizer.encode(state, add_special_tokens=False)
         len_target_id = len(target_id)
-        if len_target_id > self.args.max_seq_length - 5:
-            target_id = target_id[len_target_id - (self.args.max_seq_length - 2) :]
+        if len_target_id > self.args.max_seq_length - 2:
+            target_id = target_id[len_target_id - (self.args.max_seq_length - 1) :]
             logger.info(
                 f"Truncate the slot [{example.guid}]"
-                f"since the length of slot exceeds {self.args.max_seq_length - 2} < {len_target_id}"
+                f"since the length of slot exceeds {self.args.max_seq_length - 1} < {len_target_id}"
             )
-        target_id = target_id
+        target_id = target_id + [self.tokenizer.sep_token_id]
+
 
         return WosInputFeature(
             example.guid, input_id, target_id
@@ -259,16 +254,26 @@ class WosProcessor(object):
         arrays = [array + [pad_idx] * (max_length - len(array)) for array in arrays]
         return arrays
 
-# from transformers import AutoConfig, AutoTokenizer
+    def convert_state_dict(self, state):
+        dic = {}
+        for slot in state:
+            s, v = self.split_slot(slot, get_domain_slot=True)
+            dic[s] = v
+        return dic
 
-# tokenizer = AutoTokenizer.from_pretrained("klue/roberta-large")
-# dst = True
-# test_filename = 'data/wos-v1.1/wos-v1.1_dev.json'
-# ontology_filename = 'data/wos-v1.1/ontology.json'
-# dataset = WosProcessor(tokenizer)
-# dataset = dataset.get_dataset(test_filename, ontology_filename)
-# print(dataset[1])
+
+from transformers import AutoConfig, AutoTokenizer
+
+tokenizer = AutoTokenizer.from_pretrained("klue/roberta-large")
+dst = True
+test_filename = 'data/wos-v1.1/wos-v1.1_dev.json'
+ontology_filename = 'data/wos-v1.1/ontology.json'
+dataset = WosProcessor(tokenizer, dst)
+dataset = dataset.get_dataset(test_filename, ontology_filename)
+#print(dataset[1])
+
 # print(type(data_0.dialogue_history[0]), data_0.dialogue_history[1][0:2], data_0.dialogue_history)
+
 
 # random_seed = 1234
 # torch.manual_seed(random_seed)
