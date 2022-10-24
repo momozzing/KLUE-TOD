@@ -223,9 +223,10 @@ class WosProcessor(object):
         # if self.dst:
         dialogue_context = "".join(example.dialogue_history)
         state = "".join(example.dialogue_state)
+        system_response = "".join(example.system_response)
 
         # print(dialogue_context)
-        input_id = self.tokenizer.encode(dialogue_context + state, add_special_tokens=False)
+        input_id = self.tokenizer.encode(dialogue_context + state + system_response, add_special_tokens=False)
         len_input_id = len(input_id)
         if len_input_id > self.args.max_seq_length - 5:
             input_id = input_id[len_input_id - (self.args.max_seq_length - 5) :]

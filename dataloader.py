@@ -24,28 +24,28 @@ class WosDataModule(object):
         ontology_filename = 'data/wos-v1.1/ontology.json'
         test = self.prepare_example_dataset(test_filename, ontology_filename)
         for b in batch:
-            tokenizer = AutoTokenizer.from_pretrained("skt/ko-gpt-trinity-1.2B-v0.5")
-            print("=======================================")
-            print(test[0])
-            print("=======================================")
-            print(b)
-            print("=======================================")
+            # tokenizer = AutoTokenizer.from_pretrained("skt/ko-gpt-trinity-1.2B-v0.5")
+            # print("=======================================")
+            # print(test[0])
+            # print("=======================================")
+            # print(b)
+            # print("=======================================")
             # print(tokenizer.convert_ids_to_tokens(b.input_id))
 
-        input_ids = torch.LongTensor(
-            self.processor.pad_ids(
-                [b.input_id for b in batch], self.tokenizer.pad_token_id
+            input_ids = torch.LongTensor(
+                self.processor.pad_ids(
+                    [b.input_id for b in batch], self.tokenizer.pad_token_id
+                )
             )
-        )
-        target_ids = torch.LongTensor(
-            self.processor.pad_ids(
-                [b.target_id for b in batch], self.tokenizer.pad_token_id
+            target_ids = torch.LongTensor(
+                self.processor.pad_ids(
+                    [b.target_id for b in batch], self.tokenizer.pad_token_id
+                )
             )
-        )
-        input_masks = input_ids.ne(self.tokenizer.pad_token_id)
+            input_masks = input_ids.ne(self.tokenizer.pad_token_id)
 
-        guids = [b.guid for b in batch]
-        return input_ids, input_masks, target_ids, guids
+            guids = [b.guid for b in batch]
+            return input_ids, input_masks, target_ids, guids
 
     #################todo data collate_fn 수정 
 
