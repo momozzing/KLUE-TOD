@@ -2,7 +2,8 @@ import torch
 from dataset import WosProcessor
 from torch.utils.data import DataLoader
 from transformers import AutoConfig, AutoTokenizer
-
+import os
+from torch.utils.data import DataLoader, DistributedSampler
 
 class WosDataModule(object):
     def __init__(self, args, tokenizer):
@@ -54,16 +55,32 @@ class WosDataModule(object):
         file_path: str,
         ontology_path: str,
         batch_size: int,
+        seed: int,
         shuffle: bool = False,
-        **kwargs
+        # **kwargs
+
     ):
+    #     return DataLoader(
+    #     self.prepare_dataset(file_path, ontology_path),
+    #     batch_size=batch_size,
+    #     shuffle=shuffle,
+    #     collate_fn=self.collate_fn,
+    #     **kwargs
+    # )
+
         return DataLoader(
             self.prepare_dataset(file_path, ontology_path),
             batch_size=batch_size,
+            num_workers=8, #os.cpu_count() // dist.get_world_size(),    ## CPU workers들 최대로 학습.
+            drop_last=True,
+            pin_memory=False,
             shuffle=shuffle,
             collate_fn=self.collate_fn,
-            **kwargs
+            sampler=DistributedSampler(  ## 이거 사용 안하면 GPU 2개에 같은데이터 들어감. 꼭 샘플링해줘야함.
+                self.prepare_dataset(file_path, ontology_path),
+                shuffle=shuffle,
+                drop_last=True,
+                seed=seed,
+            ),
         )
-
-
 

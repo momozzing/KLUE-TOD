@@ -1,3 +1,1 @@
-python inference.py --data_dir data/wos-v1.1 \
-                    --model_dir model \
-                    --output_dir output 
+deepspeed --num_gpus=2 inference.py --data_dir data/wos-v1.1 --model_dir model --output_dir output 
