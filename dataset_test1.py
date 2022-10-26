@@ -1,6 +1,7 @@
 """
 deepspeed --num_gpus=2 dataset.py
 """
+
 import os
 import json
 import logging
@@ -36,7 +37,6 @@ class WosInputExample:
 class WosInputFeature:
     guid: str
     input_id: List[int]
-    attention_mask: List[int]
     target_id: List[int]
 
 class WosDataset(Dataset):
@@ -228,44 +228,30 @@ class WosProcessor(object):
         system_response = "".join(example.system_response)
 
         # print(dialogue_context)
-        tokens = self.tokenizer(
-            dialogue_context + state + system_response, 
-            return_tensors="pt", 
-            truncation=True, 
-            padding=True, 
-            max_length=self.args.max_seq_length
-        )
+        input_id = self.tokenizer.encode(dialogue_context + state + system_response, add_special_tokens=False)
+        len_input_id = len(input_id)
+        if len_input_id > self.args.max_seq_length - 5:
+            input_id = input_id[len_input_id - (self.args.max_seq_length - 5) :]
+            logger.info(
+                f"Truncate the context [{example.guid}]"
+                f"since the length of dialogue exceeds {self.args.max_seq_length - 5} < {len_input_id}"
+            )
+        input_id = (input_id)
 
-        input_id = tokens.input_ids
-        attention_mask = tokens.attention_mask
-        target_id = tokens.input_ids
+        system_response = "".join(example.system_response)
 
-
-
-
-        # len_input_id = len(input_id)
-        # if len_input_id > self.args.max_seq_length - 5:
-        #     input_id = input_id[len_input_id - (self.args.max_seq_length - 5) :]
-        #     logger.info(
-        #         f"Truncate the context [{example.guid}]"
-        #         f"since the length of dialogue exceeds {self.args.max_seq_length - 5} < {len_input_id}"
-        #     )
-        # input_id = (input_id)
-
-        # system_response = "".join(example.system_response)
-
-        # target_id = self.tokenizer.encode(system_response, add_special_tokens=False)
-        # len_target_id = len(target_id)
-        # if len_target_id > self.args.max_seq_length - 5:
-        #     target_id = target_id[len_target_id - (self.args.max_seq_length - 2) :]
-        #     logger.info(
-        #         f"Truncate the slot [{example.guid}]"
-        #         f"since the length of slot exceeds {self.args.max_seq_length - 2} < {len_target_id}"
-        #     )
-        # target_id = target_id + [self.tokenizer.eos_token_id]
+        target_id = self.tokenizer.encode(system_response, add_special_tokens=False)
+        len_target_id = len(target_id)
+        if len_target_id > self.args.max_seq_length - 5:
+            target_id = target_id[len_target_id - (self.args.max_seq_length - 2) :]
+            logger.info(
+                f"Truncate the slot [{example.guid}]"
+                f"since the length of slot exceeds {self.args.max_seq_length - 2} < {len_target_id}"
+            )
+        target_id = target_id + [self.tokenizer.eos_token_id]
 
         return WosInputFeature(
-            example.guid, input_id, attention_mask, target_id
+            example.guid, input_id, target_id
         )
 
     @staticmethod
