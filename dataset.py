@@ -229,7 +229,7 @@ class WosProcessor(object):
 
         # print(dialogue_context)
         tokens = self.tokenizer(
-            dialogue_context + state + system_response, 
+            "<s>" + dialogue_context + state + system_response + "</s>", 
             return_tensors="pt", 
             truncation=True, 
             padding=True, 
