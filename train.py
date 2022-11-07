@@ -23,7 +23,7 @@ parser.add_argument("--local_rank", type=int)
 parser.add_argument(
     "--batch_size",
     type=int,
-    default=8,
+    default=64,
     metavar="N",
     help="input batch size for inference (default: 32)",
 )
@@ -122,43 +122,44 @@ engine, _, _, _ = deepspeed.initialize(
 # optimizer = AdamW(params=model.parameters(),
 #         lr=3e-5, weight_decay=3e-7
 #     )
-    
+
 epochs = 100
 for epoch in range(epochs):
     model.train()
     for batch in tqdm(train_data_loader):
+        engine.zero_grad()
         train_input_ids, train_input_masks, train_target_ids = [
         b.cuda() for b in batch[:-1]
     ]
-    # print("==============input_ids=========================")
-    # # print(train_input_ids[0])
-    # print(tokenizer.convert_ids_to_tokens(train_input_ids[0]))  
-    # print("=============input_masks==========================")
-    # # print(train_input_masks[0])
-    # print(tokenizer.convert_ids_to_tokens(train_input_masks[0]))  
-    # print("============target_ids===========================")
-    # # print(train_target_ids[0])
-    # print(tokenizer.convert_ids_to_tokens(train_target_ids[0]))  
+        # print("==============input_ids=========================")
+        # print(dialogue_history)
+        # # print(tokenizer.convert_ids_to_tokens(train_input_ids[0]))  
+        # print("=============input_masks==========================")
+        # print(system_response)
+        # # print(tokenizer.convert_ids_to_tokens(train_input_masks[0]))  
+        # print("============target_ids===========================")
+        # print(dialogue_state)
+        # print(tokenizer.convert_ids_to_tokens(train_target_ids[0]))  
 
-    engine.zero_grad()
-    output = engine.forward(
-        input_ids=train_input_ids,
-        attention_mask=train_input_masks,
-        labels=train_input_ids,
-    )
+        output = engine.forward(
+            input_ids=train_input_ids,
+            attention_mask=train_input_masks,
+            labels=train_input_ids,
+        )
 
-    loss = output.loss
+        loss = output.loss
+        total_loss =+ loss
+            # print({"loss": loss.item()})
+            # print({"epoch": epoch+1})
+
+        # loss.requires_grad_(True)
+        engine.backward(loss)
+        engine.step()
     if dist.get_rank() == 0:
-        wandb.log({"loss": loss.item()})
-        wandb.log({"epoch": epoch})
-        print({"loss": loss.item()})
-        print({"epoch": epoch+1})
-
-
-    # loss.requires_grad_(True)
-    engine.backward(loss)
-    engine.step()
-
+        wandb.log({"loss": total_loss/len(train_data_loader)})
+        wandb.log({"epoch": epoch+1})
+        # print({"loss": loss.item()})
+        # print({"epoch": epoch+1})
 
     with torch.no_grad():
         model.eval()
@@ -166,18 +167,17 @@ for epoch in range(epochs):
             test_input_ids, test_input_masks, test_target_ids = [
             b.cuda() for b in batch[:-1]
         ]
-        eval_out = engine.forward(
-            input_ids=test_input_ids,
-            attention_mask=test_input_masks,
-            labels=test_input_ids,
-        )
+            eval_out = engine.forward(
+                input_ids=test_input_ids,
+                attention_mask=test_input_masks,
+                labels=test_input_ids,
+            )
 
-        eval_loss = eval_out.loss        
-
+            eval_loss = eval_out.loss    
+            eval_total_loss =+ eval_loss
+   
     if dist.get_rank() == 0:
-        wandb.log({"eval_loss": eval_loss.item()})
-        print({"eval_loss": eval_loss.item()}) 
-
-
-    ckpt_dir = f"model_save/{args.model_name.replace('/', '-')}-{epoch}"
+        wandb.log({"eval_loss": eval_total_loss/len(test_data_loader)})
+        # print({"eval_loss": eval_loss.item()}) 
+    ckpt_dir = f"model_save/{args.model_name.replace('/', '-')}-{epoch+1}"
     model.save_pretrained(ckpt_dir)
