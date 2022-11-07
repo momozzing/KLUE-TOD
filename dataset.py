@@ -240,8 +240,15 @@ class WosProcessor(object):
         attention_mask = tokens.attention_mask
         target_id = tokens.input_ids
 
-
-
+        print("==============input_ids=========================")
+        # print(train_input_ids[0])
+        print(self.tokenizer.convert_ids_to_tokens(input_id[0]))  
+        print("=============input_masks==========================")
+        # print(train_input_masks[0])
+        print(self.tokenizer.convert_ids_to_tokens(attention_mask[0]))  
+        print("============target_ids===========================")
+        # print(train_target_ids[0])
+        print(self.tokenizer.convert_ids_to_tokens(target_id[0]))  
 
         # len_input_id = len(input_id)
         # if len_input_id > self.args.max_seq_length - 5:

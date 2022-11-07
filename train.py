@@ -131,11 +131,14 @@ for epoch in range(epochs):
         b.cuda() for b in batch[:-1]
     ]
     # print("==============input_ids=========================")
-    # print(train_input_ids[0])
+    # # print(train_input_ids[0])
+    # print(tokenizer.convert_ids_to_tokens(train_input_ids[0]))  
     # print("=============input_masks==========================")
-    # print(train_input_masks[0])
+    # # print(train_input_masks[0])
+    # print(tokenizer.convert_ids_to_tokens(train_input_masks[0]))  
     # print("============target_ids===========================")
-    # print(train_target_ids[0])
+    # # print(train_target_ids[0])
+    # print(tokenizer.convert_ids_to_tokens(train_target_ids[0]))  
 
     engine.zero_grad()
     output = engine.forward(
