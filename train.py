@@ -23,7 +23,7 @@ parser.add_argument("--local_rank", type=int)
 parser.add_argument(
     "--batch_size",
     type=int,
-    default=64,
+    default=128,
     metavar="N",
     help="input batch size for inference (default: 32)",
 )
@@ -148,7 +148,6 @@ for epoch in range(epochs):
         )
 
         loss = output.loss
-        total_loss =+ loss
             # print({"loss": loss.item()})
             # print({"epoch": epoch+1})
 
@@ -156,7 +155,7 @@ for epoch in range(epochs):
         engine.backward(loss)
         engine.step()
     if dist.get_rank() == 0:
-        wandb.log({"loss": total_loss/len(train_data_loader)})
+        wandb.log({"loss": loss.item()})
         wandb.log({"epoch": epoch+1})
         # print({"loss": loss.item()})
         # print({"epoch": epoch+1})
@@ -174,10 +173,10 @@ for epoch in range(epochs):
             )
 
             eval_loss = eval_out.loss    
-            eval_total_loss =+ eval_loss
    
     if dist.get_rank() == 0:
-        wandb.log({"eval_loss": eval_total_loss/len(test_data_loader)})
+        wandb.log({"eval_loss": eval_loss.item()})
+
         # print({"eval_loss": eval_loss.item()}) 
     ckpt_dir = f"model_save/{args.model_name.replace('/', '-')}-{epoch+1}"
     model.save_pretrained(ckpt_dir)
