@@ -35,9 +35,9 @@ class WosInputExample:
 @dataclass
 class WosInputFeature:
     guid: str
-    input_id: List[int]
-    attention_mask: List[int]
-    target_id: List[int]
+    tokens_ids: List[int]
+    # attention_mask: List[int]
+    # target_id: List[int]
 
 class WosDataset(Dataset):
     def __init__(self, features):
@@ -228,17 +228,13 @@ class WosProcessor(object):
         system_response = "".join(example.system_response)
 
         # print(dialogue_context)
-        tokens = self.tokenizer(
-            "<s>" + dialogue_context + state + system_response + "</s>", 
-            return_tensors="pt", 
-            truncation=True, 
-            padding=True, 
-            max_length=self.args.max_seq_length
+        tokens_ids = self.tokenizer.encode(
+            str(self.tokenizer.bos_token) + dialogue_context + state + system_response + str(self.tokenizer.eos_token)
         )
 
-        input_id = tokens.input_ids
-        attention_mask = tokens.attention_mask
-        target_id = tokens.input_ids
+        # input_id = tokens.input_ids
+        # attention_mask = tokens.attention_mask
+        # target_id = tokens.input_ids
 
         # print("==============input_ids=========================")
         # # print(train_input_ids[0])
@@ -272,7 +268,7 @@ class WosProcessor(object):
         # target_id = target_id + [self.tokenizer.eos_token_id]
 
         return WosInputFeature(
-            example.guid, input_id, attention_mask, target_id
+            example.guid, tokens_ids
         )
 
     @staticmethod

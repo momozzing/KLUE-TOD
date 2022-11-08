@@ -23,7 +23,7 @@ parser.add_argument("--local_rank", type=int)
 parser.add_argument(
     "--batch_size",
     type=int,
-    default=128,
+    default=4,
     metavar="N",
     help="input batch size for inference (default: 32)",
 )
@@ -132,19 +132,19 @@ for epoch in range(epochs):
         b.cuda() for b in batch[:-1]
     ]
         # print("==============input_ids=========================")
-        # print(dialogue_history)
-        # # print(tokenizer.convert_ids_to_tokens(train_input_ids[0]))  
+        # print(train_input_ids[0])
+        # print(tokenizer.convert_ids_to_tokens(train_input_ids[0]))  
         # print("=============input_masks==========================")
-        # print(system_response)
-        # # print(tokenizer.convert_ids_to_tokens(train_input_masks[0]))  
+        # print(train_input_masks[0])
+        # print(tokenizer.convert_ids_to_tokens(train_input_masks[0]))  
         # print("============target_ids===========================")
-        # print(dialogue_state)
+        # print(train_target_ids[0])
         # print(tokenizer.convert_ids_to_tokens(train_target_ids[0]))  
 
         output = engine.forward(
             input_ids=train_input_ids,
             attention_mask=train_input_masks,
-            labels=train_input_ids,
+            labels=train_target_ids,
         )
 
         loss = output.loss

@@ -19,11 +19,14 @@ class WosDataModule(object):
         # test_filename = 'data/wos-v1.1/wos-v1.1_dev.json'
         # ontology_filename = 'data/wos-v1.1/ontology.json'
         # test = self.prepare_example_dataset(test_filename, ontology_filename)
-        for b in batch:
-            input_ids = b.input_id
-            target_ids = b.target_id
-            attention_mask = b.attention_mask
-            guids = b.guid
+
+        input_ids = torch.LongTensor(
+            self.processor.pad_ids([b.tokens_ids for b in batch], self.tokenizer.pad_token_id)
+            )
+        attention_mask = input_ids.ne(self.tokenizer.pad_token_id) 
+        target_ids = torch.LongTensor(self.processor.pad_ids([b.tokens_ids for b in batch], self.tokenizer.pad_token_id))
+        guids = [b.guid for b in batch]
+   
 
             # print("==============input_ids=========================")
             # print(input_ids[0])
@@ -33,7 +36,7 @@ class WosDataModule(object):
             # print(target_ids[0])
 
 
-            return input_ids, attention_mask, target_ids, guids
+        return input_ids, attention_mask, target_ids, guids
 
     #################todo data collate_fn 수정 
 
