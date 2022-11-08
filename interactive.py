@@ -13,7 +13,7 @@ tokenizer = AutoTokenizer.from_pretrained("skt/ko-gpt-trinity-1.2B-v0.5")
 SPECIAL_TOKENS = ['<sos_u>', '<sos_r>', '<sos_b>', '<sos_a>', '<eos_u>', '<eos_r>', '<eos_b>', 
             '<eos_a>', '<sos_context>', '<eos_context>']
 
-tokenizer.add_special_tokens(SPECIAL_TOKENS)
+tokenizer.add_tokens(SPECIAL_TOKENS)
 
 model = AutoModelWithLMHead.from_pretrained(model_name)
 model.resize_token_embeddings(len(tokenizer)) 
