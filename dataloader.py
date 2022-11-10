@@ -24,7 +24,7 @@ class WosDataModule(object):
             self.processor.pad_ids([b.tokens_ids for b in batch], self.tokenizer.pad_token_id)
             )
         attention_mask = input_ids.ne(self.tokenizer.pad_token_id) 
-        target_ids = torch.LongTensor([b.target_ids for b in batch])
+        target_ids = [b.target_ids for b in batch]
         guids = [b.guid for b in batch]
    
 
@@ -73,3 +73,29 @@ class WosDataModule(object):
             ),
         )
 
+    def get_test_dataloader(
+        self,
+        file_path: str,
+        ontology_path: str,
+        batch_size: int,
+        seed: int,
+        # **kwargs
+
+    ):
+    #     return DataLoader(
+    #     self.prepare_dataset(file_path, ontology_path),
+    #     batch_size=batch_size,
+    #     shuffle=shuffle,
+    #     collate_fn=self.collate_fn,
+    #     **kwargs
+    # )
+
+        return DataLoader(
+            self.prepare_dataset(file_path, ontology_path),
+            batch_size=batch_size,
+            num_workers=8, #os.cpu_count() // dist.get_world_size(),    ## CPU workers들 최대로 학습.
+            drop_last=True,
+            pin_memory=False,
+            shuffle=True,
+            collate_fn=self.collate_fn,
+        )

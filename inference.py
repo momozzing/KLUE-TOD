@@ -40,7 +40,7 @@ parser.add_argument(
 parser.add_argument(
     "--ckpt_name",
     type=str,
-    default="model_save/skt-ko-gpt-trinity-1.2B-v0.5-0",
+    default="model_save/skt-ko-gpt-trinity-1.2B-v0.5-0/pytorch_model.bin",
 )
 parser.add_argument(
     "--max_seq_length",
@@ -64,16 +64,16 @@ test_filepath = 'data/wos-v1.1/wos_test.json'
 ontology_filepath = 'data/wos-v1.1/ontology.json'
 
 ## deepspeed setup
-comm.init_distributed("nccl")
-torch.cuda.set_device(torch.distributed.get_rank())
+# comm.init_distributed("nccl")
+# torch.cuda.set_device(torch.distributed.get_rank())
 os.environ["TOKENIZERS_PARALLELISM"] = "true"
 
 # set seed
 set_seed(args.seed)
 
 # wandb setup
-if dist.get_rank() == 0:  ## 이렇게 해야지 완디비 두개나오는걸 방지.
-    wandb.init(project="KLUE-TOD", name=f"{args.model_name}_inference")
+# if dist.get_rank() == 0:  ## 이렇게 해야지 완디비 두개나오는걸 방지.
+wandb.init(project="KLUE-TOD", name=f"{args.model_name}_inference")
 
 # load tokenizer
 tokenizer = AutoTokenizer.from_pretrained("skt/ko-gpt-trinity-1.2B-v0.5")
@@ -84,7 +84,7 @@ tokenizer.add_tokens(SPECIAL_TOKENS)
 
 data_module = WosDataModule(args, tokenizer)
 
-test_data_loader = data_module.get_dataloader(
+test_data_loader = data_module.get_test_dataloader(
     test_filepath, ontology_filepath, args.batch_size, seed=args.seed
 )
 args.processor = data_module.processor
@@ -94,7 +94,7 @@ args.processor = data_module.processor
 model = AutoModelForCausalLM.from_pretrained(args.model_name).cuda()
 model.resize_token_embeddings(len(tokenizer)) 
 model.load_state_dict(torch.load(args.ckpt_name, map_location="cpu"))
-
+model.cuda()
 ## deepspeed int
 no_decay = [
 "bias",
@@ -117,11 +117,11 @@ optimizer_grouped_parameters = [
     },
 ]
 
-engine, _, _, _ = deepspeed.initialize(
-    args=args,
-    model=model,
-    model_parameters=optimizer_grouped_parameters,
-)
+# engine, _, _, _ = deepspeed.initialize(
+#     args=args,
+#     model=model,
+#     model_parameters=optimizer_grouped_parameters,
+# )
 
 
 # optimizer = AdamW(params=model.parameters(),
@@ -137,15 +137,17 @@ with torch.no_grad():
     model.eval()
     for batch in tqdm(test_data_loader):
         test_input_ids, test_input_masks, test_target_ids = [
-        b.cuda() for b in batch[:-1]
+        b for b in batch[:-1]
     ]
+        test_input_ids.cuda()
+        test_input_masks.cuda()
         # eval_out = engine.forward(
         #     input_ids=test_input_ids,
         #     attention_mask=test_input_masks,
         #     labels=test_input_ids,
         # )
 
-        sample_output = engine.generate(
+        sample_output = model.generate(
                 test_input_ids, 
                 max_length=200, 
                 num_beams=10, 
@@ -173,6 +175,6 @@ with torch.no_grad():
 
     bleu = BLEU()
 
-    if dist.get_rank() == 0:
-        wandb.log({"BLEU_Score": bleu.corpus_score(gen_result, [label])})
+    # if dist.get_rank() == 0:
+    wandb.log({"BLEU_Score": bleu.corpus_score(gen_result, [label])})
 
