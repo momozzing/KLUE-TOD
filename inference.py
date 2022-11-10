@@ -16,6 +16,8 @@ from deepspeed.comm import comm
 import torch.distributed as dist
 import wandb
 import deepspeed
+import pandas as pd
+from sacrebleu.metrics import BLEU
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--deepspeed_config", type=str, default="ds_config.json")
@@ -36,6 +38,11 @@ parser.add_argument(
     default="skt/ko-gpt-trinity-1.2B-v0.5",
 )
 parser.add_argument(
+    "--ckpt_name",
+    type=str,
+    default="model_save/skt-ko-gpt-trinity-1.2B-v0.5-0",
+)
+parser.add_argument(
     "--max_seq_length",
     default=768,
     type=int,
@@ -53,8 +60,7 @@ args = parser.parse_args()
 
 data_dir = args.data_dir
 
-train_filepath = 'data/wos-v1.1/wos_train.json'
-dev_filepath = 'data/wos-v1.1/wos_dev.json'
+test_filepath = 'data/wos-v1.1/wos_test.json'
 ontology_filepath = 'data/wos-v1.1/ontology.json'
 
 ## deepspeed setup
@@ -67,7 +73,7 @@ set_seed(args.seed)
 
 # wandb setup
 if dist.get_rank() == 0:  ## 이렇게 해야지 완디비 두개나오는걸 방지.
-    wandb.init(project="KLUE-TOD", name=f"{args.model_name}_End-to-End-act_split")
+    wandb.init(project="KLUE-TOD", name=f"{args.model_name}_inference")
 
 # load tokenizer
 tokenizer = AutoTokenizer.from_pretrained("skt/ko-gpt-trinity-1.2B-v0.5")
@@ -78,17 +84,16 @@ tokenizer.add_tokens(SPECIAL_TOKENS)
 
 data_module = WosDataModule(args, tokenizer)
 
-train_data_loader = data_module.get_dataloader(
-    train_filepath, ontology_filepath, args.batch_size, seed=args.seed
-)
-dev_data_loader = data_module.get_dataloader(
-    dev_filepath, ontology_filepath, args.batch_size, seed=args.seed
+test_data_loader = data_module.get_dataloader(
+    test_filepath, ontology_filepath, args.batch_size, seed=args.seed
 )
 args.processor = data_module.processor
 
 # load model
+
 model = AutoModelForCausalLM.from_pretrained(args.model_name).cuda()
 model.resize_token_embeddings(len(tokenizer)) 
+model.load_state_dict(torch.load(args.ckpt_name, map_location="cpu"))
 
 ## deepspeed int
 no_decay = [
@@ -123,60 +128,51 @@ engine, _, _, _ = deepspeed.initialize(
 #         lr=3e-5, weight_decay=3e-7
 #     )
 
-epochs = 100
-for epoch in range(epochs):
-    model.train()
-    for batch in tqdm(train_data_loader):
-        engine.zero_grad()
-        train_input_ids, train_input_masks, train_target_ids = [
+gen_result = []
+label = []
+input_text = []
+result = {}
+
+with torch.no_grad():
+    model.eval()
+    for batch in tqdm(test_data_loader):
+        test_input_ids, test_input_masks, test_target_ids = [
         b.cuda() for b in batch[:-1]
     ]
-        # print("==============input_ids=========================")
-        # print(train_input_ids[0])
-        # print(tokenizer.convert_ids_to_tokens(train_input_ids[0]))  
-        # print("=============input_masks==========================")
-        # print(train_input_masks[0])
-        # print(tokenizer.convert_ids_to_tokens(train_input_masks[0]))  
-        # print("============target_ids===========================")
-        # print(train_target_ids[0])
-        # print(tokenizer.convert_ids_to_tokens(train_target_ids[0]))  
+        # eval_out = engine.forward(
+        #     input_ids=test_input_ids,
+        #     attention_mask=test_input_masks,
+        #     labels=test_input_ids,
+        # )
 
-        output = engine.forward(
-            input_ids=train_input_ids,
-            attention_mask=train_input_masks,
-            labels=train_input_ids,
-        )
-
-        loss = output.loss
-            # print({"loss": loss.item()})
-            # print({"epoch": epoch+1})
-
-        # loss.requires_grad_(True)
-        engine.backward(loss)
-        engine.step()
-    if dist.get_rank() == 0:
-        wandb.log({"loss": loss.item()})
-        wandb.log({"epoch": epoch+1})
-        # print({"loss": loss.item()})
-        # print({"epoch": epoch+1})
-
-    with torch.no_grad():
-        model.eval()
-        for batch in tqdm(dev_data_loader):
-            dev_input_ids, dev_input_masks, dev_target_ids = [
-            b.cuda() for b in batch[:-1]
-        ]
-            eval_out = engine.forward(
-                input_ids=dev_input_ids,
-                attention_mask=dev_input_masks,
-                labels=dev_input_ids,
+        sample_output = engine.generate(
+                test_input_ids, 
+                max_length=200, 
+                num_beams=10, 
+                early_stopping=True,
+                no_repeat_ngram_size=4,
             )
+        gen = sample_output[0]
+        gen_text = []
+        eosr_tok = torch.LongTensor(tokenizer.encode('<eos_r>')).cuda()
+        for i, tok_i in enumerate(gen):
+            gen_text.append(tok_i)
+            if tok_i == eosr_tok:
+                break
 
-            eval_loss = eval_out.loss    
-   
+        gen_result.append(str(tokenizer.decode(gen_text[len(test_input_ids[0]):-1], skip_special_tokens=True)))
+        input_text.append(str(test_input_ids))
+        label.append(str(test_target_ids))
+
+    input_df = pd.DataFrame(input_text, columns = ['input'])
+    label_df = pd.DataFrame(label, columns = ['label'])
+    gen_df = pd.DataFrame(gen_result, columns = ['gen'])
+    all_df = pd.concat([input_df, label_df, gen_df], axis=1)
+
+    all_df.to_csv(f'result/KLUE_TOD_{args.ckpt_name}.csv', sep='\t')
+
+    bleu = BLEU()
+
     if dist.get_rank() == 0:
-        wandb.log({"eval_loss": eval_loss.item()})
+        wandb.log({"BLEU_Score": bleu.corpus_score(gen_result, [label])})
 
-        # print({"eval_loss": eval_loss.item()}) 
-    ckpt_dir = f"model_save/{args.model_name.replace('/', '-')}_split-{epoch}"
-    model.save_pretrained(ckpt_dir)

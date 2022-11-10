@@ -24,7 +24,7 @@ class WosDataModule(object):
             self.processor.pad_ids([b.tokens_ids for b in batch], self.tokenizer.pad_token_id)
             )
         attention_mask = input_ids.ne(self.tokenizer.pad_token_id) 
-        target_ids = torch.LongTensor(self.processor.pad_ids([b.tokens_ids for b in batch], self.tokenizer.pad_token_id))
+        target_ids = torch.LongTensor([b.target_ids for b in batch])
         guids = [b.guid for b in batch]
    
 

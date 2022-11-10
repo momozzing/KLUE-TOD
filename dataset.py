@@ -36,6 +36,7 @@ class WosInputExample:
 class WosInputFeature:
     guid: str
     tokens_ids: List[int]
+    target_ids: List[int]
     # attention_mask: List[int]
     # target_id: List[int]
 
@@ -231,7 +232,9 @@ class WosProcessor(object):
         tokens_ids = self.tokenizer.encode(
             str(self.tokenizer.bos_token) + dialogue_context + state + system_response + str(self.tokenizer.eos_token)
         )
-
+        target_ids = self.tokenizer.encode(
+            str(self.tokenizer.bos_token) + system_response + str(self.tokenizer.eos_token)
+        )
         # input_id = tokens.input_ids
         # attention_mask = tokens.attention_mask
         # target_id = tokens.input_ids
@@ -268,7 +271,7 @@ class WosProcessor(object):
         # target_id = target_id + [self.tokenizer.eos_token_id]
 
         return WosInputFeature(
-            example.guid, tokens_ids
+            example.guid, tokens_ids, target_ids
         )
 
     @staticmethod
