@@ -87,8 +87,9 @@ dev_data_loader = data_module.get_dataloader(
 args.processor = data_module.processor
 
 # load model
-model = AutoModelForCausalLM.from_pretrained(args.model_name).cuda()
+model = AutoModelForCausalLM.from_pretrained(args.model_name)
 model.resize_token_embeddings(len(tokenizer)) 
+model.cuda()
 
 ## deepspeed int
 no_decay = [
@@ -125,12 +126,13 @@ engine, _, _, _ = deepspeed.initialize(
 
 epochs = 100
 for epoch in range(epochs):
-    model.train()
     for batch in tqdm(train_data_loader):
+        model.train()
         engine.zero_grad()
         train_input_ids, train_input_masks, train_target_ids = [
-        b.cuda() for b in batch[:-1]
+        b for b in batch[:-1]
     ]
+
         # print("==============input_ids=========================")
         # print(train_input_ids[0])
         # print(tokenizer.convert_ids_to_tokens(train_input_ids[0]))  
@@ -142,9 +144,11 @@ for epoch in range(epochs):
         # print(tokenizer.convert_ids_to_tokens(train_target_ids[0]))  
 
         output = engine.forward(
-            input_ids=train_input_ids,
-            attention_mask=train_input_masks,
-            labels=train_input_ids,
+            input_ids=train_input_ids.cuda(),
+            attention_mask=train_input_masks.cuda(),
+            labels=train_input_ids.cuda(),
+            use_cache=False,  ## 캐시 꺼줘야지 짜잘한 메모리들 없애기 가능.
+
         )
 
         loss = output.loss
@@ -164,12 +168,14 @@ for epoch in range(epochs):
         model.eval()
         for batch in tqdm(dev_data_loader):
             dev_input_ids, dev_input_masks, dev_target_ids = [
-            b.cuda() for b in batch[:-1]
+            b for b in batch[:-1]
         ]
             eval_out = engine.forward(
-                input_ids=dev_input_ids,
-                attention_mask=dev_input_masks,
-                labels=dev_input_ids,
+                input_ids=dev_input_ids.cuda(),
+                attention_mask=dev_input_masks.cuda(),
+                labels=dev_input_ids.cuda(),
+                use_cache=False,  ## 캐시 꺼줘야지 짜잘한 메모리들 없애기 가능.
+
             )
 
             eval_loss = eval_out.loss    

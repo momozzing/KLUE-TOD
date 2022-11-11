@@ -232,9 +232,8 @@ class WosProcessor(object):
         tokens_ids = self.tokenizer.encode(
             str(self.tokenizer.bos_token) + dialogue_context + state + system_response + str(self.tokenizer.eos_token)
         )
-        target_ids = self.tokenizer.encode(
-            str(self.tokenizer.bos_token) + system_response + str(self.tokenizer.eos_token)
-        )
+        target_ids = str(self.tokenizer.bos_token) + system_response + str(self.tokenizer.eos_token)
+        
         # input_id = tokens.input_ids
         # attention_mask = tokens.attention_mask
         # target_id = tokens.input_ids
