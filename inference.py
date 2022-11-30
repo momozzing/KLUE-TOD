@@ -20,12 +20,12 @@ import pandas as pd
 from sacrebleu.metrics import BLEU
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--deepspeed_config", type=str, default="ds_config.json")
-parser.add_argument("--local_rank", type=int)
+# parser.add_argument("--deepspeed_config", type=str, default="ds_config.json")
+# parser.add_argument("--local_rank", type=int)
 parser.add_argument(
     "--batch_size",
     type=int,
-    default=4,
+    default=1,
     metavar="N",
     help="input batch size for inference (default: 32)",
 )
@@ -40,7 +40,7 @@ parser.add_argument(
 parser.add_argument(
     "--ckpt_name",
     type=str,
-    default="model_save/skt-ko-gpt-trinity-1.2B-v0.5-0/pytorch_model.bin",
+    default="model_save/skt-ko-gpt-trinity-1.2B-v0.5_split-0/pytorch_model.bin",
 )
 parser.add_argument(
     "--max_seq_length",
@@ -63,10 +63,17 @@ data_dir = args.data_dir
 test_filepath = 'data/wos-v1.1/wos_test.json'
 ontology_filepath = 'data/wos-v1.1/ontology.json'
 
+<<<<<<< HEAD
 ## deepspeed setup
 # comm.init_distributed("nccl")
 # torch.cuda.set_device(torch.distributed.get_rank())
 os.environ["TOKENIZERS_PARALLELISM"] = "False"
+=======
+# deepspeed setup
+comm.init_distributed("nccl")
+torch.cuda.set_device(torch.distributed.get_rank())
+os.environ["TOKENIZERS_PARALLELISM"] = "true"
+>>>>>>> 1f166423b766f017029a5dc056467608c5c702a7
 
 # set seed
 set_seed(args.seed)
@@ -120,9 +127,12 @@ with torch.no_grad():
         test_input_ids, test_input_masks, test_target_ids = [
         b for b in batch[:-1]
     ]
+<<<<<<< HEAD
     
         test_input_ids.cuda()
         test_input_masks.cuda()
+=======
+>>>>>>> 1f166423b766f017029a5dc056467608c5c702a7
         # eval_out = engine.forward(
         #     input_ids=test_input_ids,
         #     attention_mask=test_input_masks,
@@ -130,8 +140,13 @@ with torch.no_grad():
         # )
 
         sample_output = model.generate(
+<<<<<<< HEAD
                 test_input_ids, 
                 max_length=args.max_seq_length, 
+=======
+                test_input_ids.cuda(), 
+                max_length=768, 
+>>>>>>> 1f166423b766f017029a5dc056467608c5c702a7
                 num_beams=10, 
                 early_stopping=True,
                 no_repeat_ngram_size=4,
@@ -144,11 +159,19 @@ with torch.no_grad():
             gen_text.append(tok_i)
             if tok_i == eosr_tok:
                 break
+        # print(tokenizer.convert_ids_to_tokens(test_input_ids[0]))  
+        print("test_input_ids:" , tokenizer.convert_ids_to_tokens(test_input_ids[0]))
+        print("len_test_input_ids:" , len(test_input_ids[0]))
 
-        gen_result.append(str(tokenizer.decode(gen_text[len(test_input_ids[0]):-1], skip_special_tokens=True)))
+        # gen_result.append(str(tokenizer.decode(gen[len(test_input_ids[0]):-1], skip_special_tokens=True)))
+        # gen_result.append(str(tokenizer.decode(gen_text[len(test_input_ids[0]):-1], skip_special_tokens=True)))
+        gen_result.append(str(tokenizer.decode(gen_text, skip_special_tokens=True)))
+
         input_text.append(str(test_input_ids))
-        label.append(str(test_target_ids))
+        label.append(test_target_ids)
 
+        print("gen_result:" , gen_result)
+        print("label:" , label)
     input_df = pd.DataFrame(input_text, columns = ['input'])
     label_df = pd.DataFrame(label, columns = ['label'])
     gen_df = pd.DataFrame(gen_result, columns = ['gen'])
@@ -158,6 +181,6 @@ with torch.no_grad():
 
     bleu = BLEU()
 
-    # if dist.get_rank() == 0:
-    wandb.log({"BLEU_Score": bleu.corpus_score(gen_result, [label])})
+    if dist.get_rank() == 0:
+        wandb.log({"BLEU_Score": bleu.corpus_score(gen_result, [label])})
 
