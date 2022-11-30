@@ -23,7 +23,7 @@ parser.add_argument("--local_rank", type=int)
 parser.add_argument(
     "--batch_size",
     type=int,
-    default=4,
+    default=8,
     metavar="N",
     help="input batch size for inference (default: 32)",
 )
@@ -33,7 +33,7 @@ parser.add_argument(
 parser.add_argument(
     "--model_name",
     type=str,
-    default="skt/ko-gpt-trinity-1.2B-v0.5",
+    default="skt/kogpt2-base-v2",
 )
 parser.add_argument(
     "--max_seq_length",
@@ -70,7 +70,8 @@ if dist.get_rank() == 0:  ## 이렇게 해야지 완디비 두개나오는걸 �
     wandb.init(project="KLUE-TOD", name=f"{args.model_name}_End-to-End-act_split")
 
 # load tokenizer
-tokenizer = AutoTokenizer.from_pretrained("skt/ko-gpt-trinity-1.2B-v0.5")
+tokenizer = AutoTokenizer.from_pretrained("skt/kogpt2-base-v2", bos_token='</s>', eos_token='</s>', unk_token='<unk>',
+  pad_token='<pad>', mask_token='<mask>')
 SPECIAL_TOKENS = ['<sos_u>', '<sos_r>', '<sos_b>', '<sos_a>', '<eos_u>', '<eos_r>', '<eos_b>', 
             '<eos_a>', '<sos_context>', '<eos_context>']
 

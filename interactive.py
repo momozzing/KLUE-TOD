@@ -7,9 +7,10 @@ import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
 ckpt_name = "model_save/skt-ko-gpt-trinity-1.2B-v0.5-7/pytorch_model.bin"
-model_name = "skt/ko-gpt-trinity-1.2B-v0.5"
+model_name = "skt/kogpt2-base-v2"
 
-tokenizer = AutoTokenizer.from_pretrained("skt/ko-gpt-trinity-1.2B-v0.5")
+tokenizer = AutoTokenizer.from_pretrained("skt/kogpt2-base-v2", bos_token='</s>', eos_token='</s>', unk_token='<unk>',
+  pad_token='<pad>', mask_token='<mask>')
 SPECIAL_TOKENS = ['<sos_u>', '<sos_r>', '<sos_b>', '<sos_a>', '<eos_u>', '<eos_r>', '<eos_b>', 
             '<eos_a>', '<sos_context>', '<eos_context>']
 

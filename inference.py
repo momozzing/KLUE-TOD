@@ -66,7 +66,7 @@ ontology_filepath = 'data/wos-v1.1/ontology.json'
 ## deepspeed setup
 # comm.init_distributed("nccl")
 # torch.cuda.set_device(torch.distributed.get_rank())
-os.environ["TOKENIZERS_PARALLELISM"] = "true"
+os.environ["TOKENIZERS_PARALLELISM"] = "False"
 
 # set seed
 set_seed(args.seed)
@@ -76,7 +76,8 @@ set_seed(args.seed)
 wandb.init(project="KLUE-TOD", name=f"{args.model_name}_inference")
 
 # load tokenizer
-tokenizer = AutoTokenizer.from_pretrained("skt/ko-gpt-trinity-1.2B-v0.5")
+tokenizer = AutoTokenizer.from_pretrained("skt/kogpt2-base-v2", bos_token='</s>', eos_token='</s>', unk_token='<unk>',
+  pad_token='<pad>', mask_token='<mask>')
 SPECIAL_TOKENS = ['<sos_u>', '<sos_r>', '<sos_b>', '<sos_a>', '<eos_u>', '<eos_r>', '<eos_b>', 
             '<eos_a>', '<sos_context>', '<eos_context>']
 
@@ -91,31 +92,11 @@ args.processor = data_module.processor
 
 # load model
 
-model = AutoModelForCausalLM.from_pretrained(args.model_name).cuda()
+model = AutoModelForCausalLM.from_pretrained(args.model_name)
 model.resize_token_embeddings(len(tokenizer)) 
-model.load_state_dict(torch.load(args.ckpt_name, map_location="cpu"))
+model.load_state_dict(torch.load(args.ckpt_name, map_location="cuda:0"))
 model.cuda()
 ## deepspeed int
-no_decay = [
-"bias",
-"LayerNorm.weight",
-]
-optimizer_grouped_parameters = [
-    {
-        "params": [
-            p
-            for n, p in model.named_parameters()
-            if not any(nd in n for nd in no_decay)
-        ],
-        "weight_decay": 3e-7,
-    },
-    {
-        "params": [
-            p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)
-        ],
-        "weight_decay": 0.0,
-    },
-]
 
 # engine, _, _, _ = deepspeed.initialize(
 #     args=args,
@@ -139,6 +120,7 @@ with torch.no_grad():
         test_input_ids, test_input_masks, test_target_ids = [
         b for b in batch[:-1]
     ]
+    
         test_input_ids.cuda()
         test_input_masks.cuda()
         # eval_out = engine.forward(
@@ -149,11 +131,12 @@ with torch.no_grad():
 
         sample_output = model.generate(
                 test_input_ids, 
-                max_length=200, 
+                max_length=args.max_seq_length, 
                 num_beams=10, 
                 early_stopping=True,
                 no_repeat_ngram_size=4,
             )
+
         gen = sample_output[0]
         gen_text = []
         eosr_tok = torch.LongTensor(tokenizer.encode('<eos_r>')).cuda()
