@@ -6,7 +6,7 @@ CUDA_VISIBLE_DEVICES=1 python interactive_bart.py
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
-ckpt_name = "model_save/skt-ko-gpt-trinity-1.2B-v0.5-7/pytorch_model.bin"
+ckpt_name = "model_save/skt-kogpt2-base-v2_split-87/pytorch_model.bin"
 model_name = "skt/kogpt2-base-v2"
 
 tokenizer = AutoTokenizer.from_pretrained("skt/kogpt2-base-v2", bos_token='</s>', eos_token='</s>', unk_token='<unk>',
@@ -22,7 +22,6 @@ model.resize_token_embeddings(len(tokenizer))
 model.load_state_dict(torch.load(ckpt_name, map_location="cpu"))
 model.cuda()
 
-# prefix = "translate English to German: "
 
 with torch.no_grad():
     while True:
@@ -70,4 +69,6 @@ with torch.no_grad():
             if tok_i == eosr_tok:
                 break
 
-        print("System", tokenizer.decode(gen_text[len(input_ids[0]):-1], skip_special_tokens=True))
+        system_utterence = tokenizer.decode(gen_text[len(input_ids[0]):-1], skip_special_tokens=True)
+
+        print("System :", system_utterence.replace("<sos_r>", ""))

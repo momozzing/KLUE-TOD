@@ -128,12 +128,12 @@ class WosProcessor(object):
                 if idx == 0:
                     state = current
                 else:
-                    state = ["<sos_b>"] + list(set(current) - set(pre)) + ["<sos_b>"]
+                    state = ["<sos_b>"] + list(set(current) - set(pre)) + ["<eos_b>"]
                 # if len(state) == 0:
                 #     state = current                      -> 이거 없으면 DST정보가 같으면 DSTlabel없음. 
 
             context = deepcopy(history)
-            dialogue_history = ['<sos_context>'] + context + [sys_utter, user_utter] + ['<eos_context>']
+            dialogue_history = ['</s>'] + ['<sos_context>'] + context + [sys_utter, user_utter] + ['<eos_context>']
             examples.append(
                 WosInputExample(
                     guid=f"{dialogue_id}-{d_idx}",

@@ -63,17 +63,10 @@ data_dir = args.data_dir
 test_filepath = 'data/wos-v1.1/wos_test.json'
 ontology_filepath = 'data/wos-v1.1/ontology.json'
 
-<<<<<<< HEAD
-## deepspeed setup
-# comm.init_distributed("nccl")
-# torch.cuda.set_device(torch.distributed.get_rank())
-os.environ["TOKENIZERS_PARALLELISM"] = "False"
-=======
 # deepspeed setup
 comm.init_distributed("nccl")
 torch.cuda.set_device(torch.distributed.get_rank())
 os.environ["TOKENIZERS_PARALLELISM"] = "true"
->>>>>>> 1f166423b766f017029a5dc056467608c5c702a7
 
 # set seed
 set_seed(args.seed)
@@ -127,12 +120,6 @@ with torch.no_grad():
         test_input_ids, test_input_masks, test_target_ids = [
         b for b in batch[:-1]
     ]
-<<<<<<< HEAD
-    
-        test_input_ids.cuda()
-        test_input_masks.cuda()
-=======
->>>>>>> 1f166423b766f017029a5dc056467608c5c702a7
         # eval_out = engine.forward(
         #     input_ids=test_input_ids,
         #     attention_mask=test_input_masks,
@@ -140,13 +127,8 @@ with torch.no_grad():
         # )
 
         sample_output = model.generate(
-<<<<<<< HEAD
-                test_input_ids, 
-                max_length=args.max_seq_length, 
-=======
                 test_input_ids.cuda(), 
                 max_length=768, 
->>>>>>> 1f166423b766f017029a5dc056467608c5c702a7
                 num_beams=10, 
                 early_stopping=True,
                 no_repeat_ngram_size=4,

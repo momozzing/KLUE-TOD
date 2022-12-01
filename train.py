@@ -23,7 +23,7 @@ parser.add_argument("--local_rank", type=int)
 parser.add_argument(
     "--batch_size",
     type=int,
-    default=8,
+    default=12,
     metavar="N",
     help="input batch size for inference (default: 32)",
 )
@@ -185,5 +185,5 @@ for epoch in range(epochs):
         wandb.log({"eval_loss": eval_loss.item()})
 
         # print({"eval_loss": eval_loss.item()}) 
-    ckpt_dir = f"model_save/{args.model_name.replace('/', '-')}_split-{epoch}"
+    ckpt_dir = f"model_save/{args.model_name.replace('/', '-')}_split-{epoch}-final"
     model.save_pretrained(ckpt_dir)
