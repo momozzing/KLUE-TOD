@@ -23,7 +23,7 @@ parser.add_argument("--local_rank", type=int)
 parser.add_argument(
     "--batch_size",
     type=int,
-    default=12,
+    default=8,
     metavar="N",
     help="input batch size for inference (default: 32)",
 )
