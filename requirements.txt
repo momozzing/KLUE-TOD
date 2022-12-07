@@ -1,6 +1,10 @@
 # Framework
-torch==1.7.0
+torch==1.10.1
 transformers==3.5.1
-
+tqdm==4.24.0
+pandas==1.4.3
+mpi4py==3.1.4
+deepspeed==0.6.7
+datasets==2.5.1
 # Utils
 dataclasses; python_version<"3.7"
