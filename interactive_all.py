@@ -6,10 +6,11 @@ CUDA_VISIBLE_DEVICES=1 python interactive_bart.py
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
-ckpt_name = "model_save/skt-kogpt2-base-v2_split-99-final/pytorch_model.bin"
-model_name = "skt/kogpt2-base-v2"
+# ckpt_name = "model_save/skt-kogpt2-base-v2_split-99-final/pytorch_model.bin"
+# model_name = "skt/kogpt2-base-v2"
+model_name = "momo/KLUE-TOD"
 
-tokenizer = AutoTokenizer.from_pretrained("skt/kogpt2-base-v2", bos_token='</s>', eos_token='</s>', unk_token='<unk>',
+tokenizer = AutoTokenizer.from_pretrained(model_name, bos_token='</s>', eos_token='</s>', unk_token='<unk>',
   pad_token='<pad>', mask_token='<mask>')
 SPECIAL_TOKENS = ['<sos_u>', '<sos_r>', '<sos_b>', '<sos_a>', '<eos_u>', '<eos_r>', '<eos_b>', 
             '<eos_a>', '<sos_context>', '<eos_context>']
@@ -19,7 +20,7 @@ tokenizer.add_tokens(SPECIAL_TOKENS)
 model = AutoModelForCausalLM.from_pretrained(model_name)
 model.resize_token_embeddings(len(tokenizer)) 
 
-model.load_state_dict(torch.load(ckpt_name, map_location="cpu"))
+# model.load_state_dict(torch.load(ckpt_name, map_location="cpu"))
 model.cuda()
 
 '''
@@ -59,11 +60,6 @@ with torch.no_grad():
         belief_state = tokenizer.decode(gen_dst_text[len(input_ids[0]):-1], skip_special_tokens=True)
         print("dst :", belief_state.replace("<sos_b>", "").replace("<eos_b>", ""))
 
-        pre_turn = pre_turn + current_turn
-
-        if current_turn == "reset":
-            pre_turn = ""
-
 # all_inference
         belief_state += belief_state
         all_tokens = tokenizer(
@@ -93,4 +89,11 @@ with torch.no_grad():
                 break
 
         System_response = tokenizer.decode(gen_text[len(all_input_ids[0]):-1], skip_special_tokens=True)
-        print("System :", System_response.replace("<sos_r>", "").replace("<eos_context>", ""))
+        System_response = System_response.replace("<sos_r>", "").replace("<eos_context>", "")
+
+        pre_turn = pre_turn + current_turn + System_response
+
+        if current_turn == "reset":
+            pre_turn = ""
+
+        print("System :", System_response)
