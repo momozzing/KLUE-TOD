@@ -120,11 +120,6 @@ engine, _, _, _ = deepspeed.initialize(
     model_parameters=optimizer_grouped_parameters,
 )
 
-
-# optimizer = AdamW(params=model.parameters(),
-#         lr=3e-5, weight_decay=3e-7
-#     )
-
 epochs = 100
 for epoch in range(epochs):
     for batch in tqdm(train_data_loader):
@@ -134,29 +129,15 @@ for epoch in range(epochs):
         b for b in batch[:-1]
     ]
 
-        # print("==============input_ids=========================")
-        # print(train_input_ids[0])
-        # print(tokenizer.convert_ids_to_tokens(train_input_ids[0]))  
-        # print("=============input_masks==========================")
-        # print(train_input_masks[0])
-        # print(tokenizer.convert_ids_to_tokens(train_input_masks[0]))  
-        # print("============target_ids===========================")
-        # print(train_target_ids[0])
-        # print(tokenizer.convert_ids_to_tokens(train_target_ids[0]))  
-
         output = engine.forward(
             input_ids=train_input_ids.cuda(),
             attention_mask=train_input_masks.cuda(),
             labels=train_input_ids.cuda(),
-            use_cache=False,  ## 캐시 꺼줘야지 짜잘한 메모리들 없애기 가능.
+            use_cache=False, 
 
         )
 
         loss = output.loss
-            # print({"loss": loss.item()})
-            # print({"epoch": epoch+1})
-
-        # loss.requires_grad_(True)
         engine.backward(loss)
         engine.step()
     if dist.get_rank() == 0:
@@ -175,7 +156,7 @@ for epoch in range(epochs):
                 input_ids=dev_input_ids.cuda(),
                 attention_mask=dev_input_masks.cuda(),
                 labels=dev_input_ids.cuda(),
-                use_cache=False,  ## 캐시 꺼줘야지 짜잘한 메모리들 없애기 가능.
+                use_cache=False,  
 
             )
 
@@ -183,7 +164,7 @@ for epoch in range(epochs):
    
     if dist.get_rank() == 0:
         wandb.log({"eval_loss": eval_loss.item()})
-
         # print({"eval_loss": eval_loss.item()}) 
+
     ckpt_dir = f"model_save/{args.model_name.replace('/', '-')}_split-{epoch}-final"
     model.save_pretrained(ckpt_dir)

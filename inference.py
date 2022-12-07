@@ -35,12 +35,12 @@ parser.add_argument(
 parser.add_argument(
     "--model_name",
     type=str,
-    default="skt/ko-gpt-trinity-1.2B-v0.5",
+    default="skt/kogpt2-base-v2",
 )
 parser.add_argument(
     "--ckpt_name",
     type=str,
-    default="model_save/skt-ko-gpt-trinity-1.2B-v0.5_split-0/pytorch_model.bin",
+    default="model_save/skt-kogpt2-base-v2_split-99-final/pytorch_model.bin" ,
 )
 parser.add_argument(
     "--max_seq_length",
@@ -94,20 +94,9 @@ args.processor = data_module.processor
 
 model = AutoModelForCausalLM.from_pretrained(args.model_name)
 model.resize_token_embeddings(len(tokenizer)) 
-model.load_state_dict(torch.load(args.ckpt_name, map_location="cuda:0"))
+model.load_state_dict(torch.load(args.ckpt_name, map_location="cpu"))
 model.cuda()
 ## deepspeed int
-
-# engine, _, _, _ = deepspeed.initialize(
-#     args=args,
-#     model=model,
-#     model_parameters=optimizer_grouped_parameters,
-# )
-
-
-# optimizer = AdamW(params=model.parameters(),
-#         lr=3e-5, weight_decay=3e-7
-#     )
 
 gen_result = []
 label = []

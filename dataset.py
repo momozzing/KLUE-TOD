@@ -234,41 +234,6 @@ class WosProcessor(object):
         )
         target_ids = str(self.tokenizer.bos_token) + system_response + str(self.tokenizer.eos_token)
         
-        # input_id = tokens.input_ids
-        # attention_mask = tokens.attention_mask
-        # target_id = tokens.input_ids
-
-        # print("==============input_ids=========================")
-        # # print(train_input_ids[0])
-        # print(self.tokenizer.convert_ids_to_tokens(input_id[0]))  
-        # print("=============input_masks==========================")
-        # # print(train_input_masks[0])
-        # print(self.tokenizer.convert_ids_to_tokens(attention_mask[0]))  
-        # print("============target_ids===========================")
-        # # print(train_target_ids[0])
-        # print(self.tokenizer.convert_ids_to_tokens(target_id[0]))  
-
-        # len_input_id = len(input_id)
-        # if len_input_id > self.args.max_seq_length - 5:
-        #     input_id = input_id[len_input_id - (self.args.max_seq_length - 5) :]
-        #     logger.info(
-        #         f"Truncate the context [{example.guid}]"
-        #         f"since the length of dialogue exceeds {self.args.max_seq_length - 5} < {len_input_id}"
-        #     )
-        # input_id = (input_id)
-
-        # system_response = "".join(example.system_response)
-
-        # target_id = self.tokenizer.encode(system_response, add_special_tokens=False)
-        # len_target_id = len(target_id)
-        # if len_target_id > self.args.max_seq_length - 5:
-        #     target_id = target_id[len_target_id - (self.args.max_seq_length - 2) :]
-        #     logger.info(
-        #         f"Truncate the slot [{example.guid}]"
-        #         f"since the length of slot exceeds {self.args.max_seq_length - 2} < {len_target_id}"
-        #     )
-        # target_id = target_id + [self.tokenizer.eos_token_id]
-
         return WosInputFeature(
             example.guid, tokens_ids, target_ids
         )
@@ -280,59 +245,3 @@ class WosProcessor(object):
 
         arrays = [array + [pad_idx] * (max_length - len(array)) for array in arrays]
         return arrays
-
-# from transformers import AutoConfig, AutoTokenizer
-
-# tokenizer = AutoTokenizer.from_pretrained("klue/roberta-large")
-# dst = True
-# test_filename = 'data/wos-v1.1/wos-v1.1_dev.json'
-# ontology_filename = 'data/wos-v1.1/ontology.json'
-# dataset = WosProcessor(tokenizer)
-# dataset = dataset.get_dataset(test_filename, ontology_filename)
-# print(dataset[1])
-# print(type(data_0.dialogue_history[0]), data_0.dialogue_history[1][0:2], data_0.dialogue_history)
-
-# random_seed = 1234
-# torch.manual_seed(random_seed)
-# np.random.seed(random_seed)
-# random.seed(random_seed)
-# dist.init_process_group(backend="nccl")
-# torch.cuda.set_device(torch.distributed.get_rank())
-# os.environ["TOKENIZERS_PARALLELISM"] = "true"
-
-# parser = ArgumentParser()
-# parser.add_argument("--deepspeed_config", type=str, default="ds_config.json")
-# parser.add_argument("--local_rank", type=int)
-# parser.add_argument("--epoch", default=20, type=int)
-# parser.add_argument("--batch_size", default=16, type=int)
-# args = parser.parse_args()
-
-# train_loader = DataLoader(
-#     dataset,
-#     batch_size=8,
-#     num_workers=os.cpu_count() // dist.get_world_size(),    ## CPU workers들 최대로 학습.
-#     drop_last=True,
-#     pin_memory=False,
-#     shuffle=False,
-#     sampler=DistributedSampler(  ## 이거 사용 안하면 GPU 2개에 같은데이터 들어감. 꼭 샘플링해줘야함.
-#         dataset,
-#         shuffle=True,
-#         drop_last=True,
-#         seed=24,
-#     ),
-# )
-
-# for i in train_loader:
-#         print("===============user======================")
-#         print(len(i[0]))
-#         print(i[0].cuda())
-#         print(tokenizer.convert_ids_to_tokens(i[0][28])) 
-#         print("=================seg=====================")
-#         print(len(i[1]))
-#         print(i[1].cuda())
-#         print(tokenizer.convert_ids_to_tokens(i[1][28])) 
-#         print("=================seg=====================")
-#         print(len(i[2]))
-#         print(i[2].cuda())
-#         print(tokenizer.convert_ids_to_tokens(i[2][28])) 
-#         print("=================seg=====================")
