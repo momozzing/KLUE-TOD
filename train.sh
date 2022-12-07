@@ -1,1 +1,1 @@
-deepspeed --num_gpus=4 train.py
+deepspeed --num_gpus=2 train.py
