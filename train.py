@@ -1,4 +1,4 @@
-"""Usage
+"""
 $ deepspeed --num_gpus=2 inference.py --data_dir data \                                   
                                       --output_dir output \
                                       [args..]

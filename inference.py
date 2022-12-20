@@ -1,4 +1,5 @@
-"""Usage
+"""
+Usage
 $ deepspeed --num_gpus=2 inference.py --data_dir data \                                   
                                       --output_dir output \
                                       [args..]
@@ -13,20 +14,30 @@ from transformers import AutoConfig, AutoTokenizer
 from utils import set_seed
 from tqdm import tqdm
 from deepspeed.comm import comm
-import torch.distributed as dist
 import wandb
-import deepspeed
 import pandas as pd
 from sacrebleu.metrics import BLEU
 
+
 '''
 todo: dateloader안에 tensor로 받아오는값에 special token 제거. 
-tensor 안에 있는거중에 special token ids값을 직접 제거하면 될듯? 
+tensor 안에 있는거중에 special token ids값을 직접 제거하면 될듯?    -> XXXXX
+
+dataloader에서 -> dialogue history, belief state, system responce 따로 받아오기.   -> 완료  
+
+dst module
+input : dialogue history
+output : belief state
+
+gen module 
+input : dialogue histoty + belief state 
+output : system responce  
+
+일단 gen module의 성능평가를 위해서는 bleu score 사용 예정.
+
 '''
 
 parser = argparse.ArgumentParser()
-# parser.add_argument("--deepspeed_config", type=str, default="ds_config.json")
-# parser.add_argument("--local_rank", type=int)
 parser.add_argument(
     "--batch_size",
     type=int,
@@ -69,17 +80,13 @@ data_dir = args.data_dir
 test_filepath = 'data/wos-v1.1/wos_test.json'
 ontology_filepath = 'data/wos-v1.1/ontology.json'
 
-# # deepspeed setup
-# comm.init_distributed("nccl")
-# torch.cuda.set_device(torch.distributed.get_rank())
 os.environ["TOKENIZERS_PARALLELISM"] = "False"
 
 # set seed
 set_seed(args.seed)
 
 # wandb setup
-# if dist.get_rank() == 0:  ## 이렇게 해야지 완디비 두개나오는걸 방지.
-# wandb.init(project="KLUE-TOD", name=f"{args.model_name}_inference")
+wandb.init(project="KLUE-TOD", name=f"{args.model_name}_inference")
 
 # load tokenizer
 tokenizer = AutoTokenizer.from_pretrained(args.model_name, bos_token='<s>', eos_token='</s>', unk_token='<unk>',
@@ -108,150 +115,46 @@ label = []
 input_text = []
 result = {}
 
-
-'''
-DST inference
-'''
-pre_turn = ""
-belief_state = ""
 with torch.no_grad():
     model.eval()
     for batch in tqdm(test_data_loader):
         test_input_ids, test_input_masks, test_target_ids = [
-        b for b in batch[:-1]]
-        test_input_ids = test_input_ids.tolist()
-        special_tokens_list = tokenizer.encode('<sos_u> <sos_r> <sos_b> <sos_a> <eos_u> <eos_r> <eos_b> <eos_a> <sos_context> <eos_context> <s> </s> <unk> <pad> <mask>')
-        print("test_input_ids:", test_input_ids)
-        print(type(test_input_ids))
-        # print(special_tokens_list)
-        
-        ### special token delete
-        for idx in range(len(test_input_ids)):
-        # for idx in range(10):
-            for i in special_tokens_list:
-                # print(i)
-                # print(test_input_ids[idx])
-                # # test_input_ids[0] = ''.join(str(test_input_ids[0]))
-                # print("test: ", test_input_ids[idx])
-                if i in test_input_ids[idx]:
-                    i = int(i)
-                    test_input_ids[idx].remove(i)
-                    # print("test_input_ids:", test_input_ids[idx])
+        b for b in batch[:-1]
+    ]
+        # print(test_target_ids)
+        sample_output = model.generate(
+                test_input_ids.cuda(), 
+                max_length=768, 
+                num_beams=10, 
+                early_stopping=True,
+                no_repeat_ngram_size=4,
+            )
 
+        gen = sample_output[0]
+        gen_text = []
+        eosr_tok = torch.LongTensor(tokenizer.encode('<eos_r>')).cuda()
+        for i, tok_i in enumerate(gen):
+            gen_text.append(tok_i)
+            if tok_i == eosr_tok:
+                break
 
-        current_turn = test_input_ids
-        print("current:", current_turn)
-        dialogue_history = pre_turn + current_turn
-        print("Dialogue history:", dialogue_history)
-        tokens = tokenizer(
-            f"{str(tokenizer.bos_token)}" + "<sos_context>" + "<sos_u>" + dialogue_history + "<eos_u>" + "<eos_context>", # + "<sos_b>" + b + "<eos_b>",
-            return_tensors="pt",
-            truncation=True,
-            padding=True,
-            max_length=400
-        )
-#         input_ids = tokens.input_ids.cuda()
+        System_response = tokenizer.decode(gen_text, skip_special_tokens=True)
+        System_response = System_response.replace("<sos_r>", "").replace("<eos_context>", "")
+        gen_result.append(System_response)
+        input_text.append(tokenizer.decode(test_input_ids[0], skip_special_tokens=True))
+        label.append(test_target_ids[0])
 
-#         sample_output = model.generate(
-#             input_ids, 
-#             max_length=768, 
-#             num_beams=10, 
-#             early_stopping=True,
-#             no_repeat_ngram_size=4,
-#         )
-#         gen_dst = sample_output[0]
-#         gen_dst_text = []
-#         eosb_tok = torch.LongTensor(tokenizer.encode('<sos_r>')).cuda()
-#         for i, tok_i in enumerate(gen_dst):
-#             gen_dst_text.append(tok_i)
-#             if tok_i == eosb_tok:
-#                 break
+        # print("gen_result:" , gen_result)
+        # print("label:" , label)
+    input_df = pd.DataFrame(input_text, columns = ['input'])
+    label_df = pd.DataFrame(label, columns = ['label'])
+    gen_df = pd.DataFrame(gen_result, columns = ['gen'])
+    all_df = pd.concat([input_df, label_df, gen_df], axis=1)
 
-#         belief_state = tokenizer.decode(gen_dst_text[len(input_ids[0]):-1], skip_special_tokens=True)
-#         print("dst :", belief_state.replace("<sos_b>", "").replace("<eos_b>", ""))
+    all_df.to_csv(f'result/KLUE_TOD_{args.ckpt_name}.csv', sep='\t')
 
-#     # all_inference
-#         belief_state += belief_state
-#         all_tokens = tokenizer(
-#             f"{str(tokenizer.bos_token)}" + "<sos_context>" + "<sos_u>" + dialogue_history + "<eos_u>" + "<eos_context>" + "<sos_b>" + belief_state + "<eos_b>",
-#             return_tensors="pt",
-#             truncation=True,
-#             padding=True,
-#             max_length=400
-#         )
+    bleu = BLEU()
+    print("BLEU_Score", bleu.corpus_score(gen_result, [label]))
 
-#         all_input_ids = all_tokens.input_ids.cuda()
-
-#         all_sample_output = model.generate(
-#         all_input_ids, 
-#         max_length=768, 
-#         num_beams=10, 
-#         early_stopping=True,
-#         no_repeat_ngram_size=4,
-#     )
-
-#         gen = all_sample_output[0]
-#         gen_text = []
-#         eosr_tok = torch.LongTensor(tokenizer.encode('<eos_r>')).cuda()
-#         for i, tok_i in enumerate(gen):
-#             gen_text.append(tok_i)
-#             if tok_i == eosr_tok:
-#                 break
-
-#         System_response = tokenizer.decode(gen_text[len(all_input_ids[0]):-1], skip_special_tokens=True)
-#         System_response = System_response.replace("<sos_r>", "").replace("<eos_context>", "")
-
-#         pre_turn = pre_turn + current_turn + System_response
-
-#         if current_turn == "reset":
-#             pre_turn = ""
-
-#         print("System :", System_response)
-
-
-# with torch.no_grad():
-#     model.eval()
-#     for batch in tqdm(test_data_loader):
-#         test_input_ids, test_input_masks, test_target_ids = [
-#         b for b in batch[:-1]
-#     ]
-#         sample_output = model.generate(
-#                 test_input_ids.cuda(), 
-#                 max_length=768, 
-#                 num_beams=10, 
-#                 early_stopping=True,
-#                 no_repeat_ngram_size=4,
-#             )
-
-#         gen = sample_output[0]
-#         gen_text = []
-#         eosr_tok = torch.LongTensor(tokenizer.encode('<eos_r>')).cuda()
-#         for i, tok_i in enumerate(gen):
-#             gen_text.append(tok_i)
-#             if tok_i == eosr_tok:
-#                 break
-#         # print(tokenizer.convert_ids_to_tokens(test_input_ids[0]))  
-#         print("test_input_ids:" , tokenizer.convert_ids_to_tokens(test_input_ids[0]))
-#         print("len_test_input_ids:" , len(test_input_ids[0]))
-
-#         # gen_result.append(str(tokenizer.decode(gen[len(test_input_ids[0]):-1], skip_special_tokens=True)))
-#         # gen_result.append(str(tokenizer.decode(gen_text[len(test_input_ids[0]):-1], skip_special_tokens=True)))
-#         gen_result.append(str(tokenizer.decode(gen_text, skip_special_tokens=True)))
-
-#         input_text.append(str(test_input_ids))
-#         label.append(test_target_ids)
-
-#         print("gen_result:" , gen_result)
-#         print("label:" , label)
-#     input_df = pd.DataFrame(input_text, columns = ['input'])
-#     label_df = pd.DataFrame(label, columns = ['label'])
-#     gen_df = pd.DataFrame(gen_result, columns = ['gen'])
-#     all_df = pd.concat([input_df, label_df, gen_df], axis=1)
-
-#     all_df.to_csv(f'result/KLUE_TOD_{args.ckpt_name}.csv', sep='\t')
-
-#     bleu = BLEU()
-
-#     # if dist.get_rank() == 0:
-#     #     wandb.log({"BLEU_Score": bleu.corpus_score(gen_result, [label])})
+    wandb.log({"BLEU_Score": bleu.corpus_score(gen_result, [label])})
 
