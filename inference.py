@@ -61,7 +61,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--max_seq_length",
-    default=768,
+    default=510,
     type=int,
     help="The maximum total input sequence length after tokenization. Seqences longer "
     "than this will be truncated, sequences shorter will be padded. (default: 510)",
