@@ -86,7 +86,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "False"
 set_seed(args.seed)
 
 # wandb setup
-wandb.init(project="KLUE-TOD", name=f"{args.model_name}_inference")
+# wandb.init(project="KLUE-TOD", name=f"{args.model_name}_inference")
 
 # load tokenizer
 tokenizer = AutoTokenizer.from_pretrained(args.model_name, bos_token='<s>', eos_token='</s>', unk_token='<unk>',
@@ -129,23 +129,37 @@ with torch.no_grad():
                 early_stopping=True,
                 no_repeat_ngram_size=4,
             )
+## 51201 = "sos_r",
+## 51205 = "eos_r"
 
         gen = sample_output[0]
         gen_text = []
+        sosr_tok = torch.LongTensor(tokenizer.encode('<sos_r>')).cuda()
         eosr_tok = torch.LongTensor(tokenizer.encode('<eos_r>')).cuda()
-        for i, tok_i in enumerate(gen):
-            gen_text.append(tok_i)
-            if tok_i == eosr_tok:
-                break
+        
+        # print("gen:", gen)
+        # print("gen:", tokenizer.decode(gen, skip_special_tokens=True))
+        
+        for i, tok_i in enumerate(list(gen)):
+            if tok_i == sosr_tok:
+                gen_text = gen[i:]
+                if tok_i == eosr_tok:
+                    break
+
+        # print("gen_text:", gen_text)
+        # print("gen_text:", tokenizer.decode(gen_text, skip_special_tokens=True))
 
         System_response = tokenizer.decode(gen_text, skip_special_tokens=True)
-        System_response = System_response.replace("<sos_r>", "").replace("<eos_context>", "")
+        
+        # image.png = System_response.replace("<sos_r>", "").replace("<eos_context>", "")
         gen_result.append(System_response)
         input_text.append(tokenizer.decode(test_input_ids[0], skip_special_tokens=True))
-        label.append(test_target_ids[0])
+        label.append(test_target_ids[0].replace("<s>", "").replace("</s>", ""))
 
-        # print("gen_result:" , gen_result)
-        # print("label:" , label)
+        print("gen_result:" , gen_result)
+        print("\t")
+        print("label:" , label)
+        
     input_df = pd.DataFrame(input_text, columns = ['input'])
     label_df = pd.DataFrame(label, columns = ['label'])
     gen_df = pd.DataFrame(gen_result, columns = ['gen'])
@@ -156,5 +170,5 @@ with torch.no_grad():
     bleu = BLEU()
     print("BLEU_Score", bleu.corpus_score(gen_result, [label]))
 
-    wandb.log({"BLEU_Score": bleu.corpus_score(gen_result, [label])})
+    # wandb.log({"BLEU_Score": bleu.corpus_score(gen_result, [label])})
 
