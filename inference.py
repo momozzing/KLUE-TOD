@@ -61,7 +61,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--max_seq_length",
-    default=510,
+    default=768,
     type=int,
     help="The maximum total input sequence length after tokenization. Seqences longer "
     "than this will be truncated, sequences shorter will be padded. (default: 510)",
@@ -121,6 +121,8 @@ with torch.no_grad():
         test_input_ids, test_input_masks, test_target_ids = [
         b for b in batch[:-1]
     ]
+        # print(len(test_input_ids[0]))
+        
         # print(test_target_ids)
         sample_output = model.generate(
                 test_input_ids.cuda(), 
@@ -172,3 +174,6 @@ with torch.no_grad():
 
     # wandb.log({"BLEU_Score": bleu.corpus_score(gen_result, [label])})
 
+
+
+### todo test dataset loader에 Max_len 768 이상의 text가 들어가서 오류가 생기는듯. 
