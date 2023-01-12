@@ -230,7 +230,7 @@ class WosProcessor(object):
 
         # print(dialogue_context)
         tokens_ids = self.tokenizer.encode(
-            str(self.tokenizer.bos_token) + dialogue_context + state + system_response + str(self.tokenizer.eos_token), max_length = 768
+            str(self.tokenizer.bos_token) + dialogue_context + state + system_response + str(self.tokenizer.eos_token), max_length = 767
         )
         target_ids = str(self.tokenizer.bos_token) + system_response + str(self.tokenizer.eos_token)
         

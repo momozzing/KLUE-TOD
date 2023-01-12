@@ -173,7 +173,3 @@ with torch.no_grad():
     print("BLEU_Score", bleu.corpus_score(gen_result, [label]))
 
     # wandb.log({"BLEU_Score": bleu.corpus_score(gen_result, [label])})
-
-
-
-### todo test dataset loader에 Max_len 768 이상의 text가 들어가서 오류가 생기는듯. 
