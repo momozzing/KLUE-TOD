@@ -15,6 +15,11 @@ class WosDataModule(object):
         dataset = self.processor.get_dataset(file_path, ontology_path)
         return dataset
 
+    def prepare_test_dataset(self, file_path: str, ontology_path: str):
+        "Called to initialize test_data. Use the call to construct features and dataset"
+        dataset = self.processor.get_test_dataset(file_path, ontology_path)
+        return dataset
+
     def collate_fn(self, batch):
         # test_filename = 'data/wos-v1.1/wos-v1.1_dev.json'
         # ontology_filename = 'data/wos-v1.1/ontology.json'
@@ -91,7 +96,7 @@ class WosDataModule(object):
     # )
 
         return DataLoader(
-            self.prepare_dataset(file_path, ontology_path),
+            self.prepare_test_dataset(file_path, ontology_path),
             batch_size=batch_size,
             num_workers=8, #os.cpu_count() // dist.get_world_size(),    ## CPU workers들 최대로 학습.
             drop_last=True,

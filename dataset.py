@@ -71,7 +71,21 @@ class WosProcessor(object):
         examples = self._create_examples(file_path)
         features = self._convert_features(examples)
         return features
+    
+    def get_test_dataset(self, file_path: str, ontology_path: str) -> Dataset:
+        # Read ontology file and store the slots
+        _, self.slot_meta = self.build_slot_from_ontology(ontology_path)
 
+        # Extract slots from a given dialogue and merge with ontology slots
+        with open(file_path, "r", encoding="utf-8") as dial_file:
+            dials = json.load(dial_file)
+        slot_from_dials = self.build_slot_meta(dials)
+        self.slot_meta = self.merge_slot_meta(slot_from_dials)
+
+        examples = self._create_examples(file_path)
+        features = self._convert_test_data_features(examples)
+        return features
+    
     def get_example_dataset(self, file_path: str, ontology_path: str) -> Dataset:
         # Read ontology file and store the slots
         _, self.slot_meta = self.build_slot_from_ontology(ontology_path)
@@ -221,6 +235,16 @@ class WosProcessor(object):
                 features.append(feature)
         return features
 
+    def _convert_test_data_features(
+        self, examples: List[WosInputExample]
+    ) -> List[WosInputFeature]:
+        features = []
+        for example in examples:
+            feature = self._convert_test_data_example_to_feature(example)
+            if feature:
+                features.append(feature)
+        return features
+    
     def _convert_example_to_feature(self, example: WosInputExample) -> WosInputFeature:
 
         # if self.dst:
@@ -231,6 +255,23 @@ class WosProcessor(object):
         # print(dialogue_context)
         tokens_ids = self.tokenizer.encode(
             str(self.tokenizer.bos_token) + dialogue_context + state + system_response + str(self.tokenizer.eos_token), max_length = 767
+        )
+        target_ids = str(self.tokenizer.bos_token) + system_response + str(self.tokenizer.eos_token)
+        
+        return WosInputFeature(
+            example.guid, tokens_ids, target_ids
+        )
+
+    def _convert_test_data_example_to_feature(self, example: WosInputExample) -> WosInputFeature:
+
+        # if self.dst:
+        dialogue_context = "".join(example.dialogue_history)
+        state = "".join(example.dialogue_state)
+        system_response = "".join(example.system_response)
+
+        # print(dialogue_context)
+        tokens_ids = self.tokenizer.encode(
+            str(self.tokenizer.bos_token) + dialogue_context + state , max_length = 767
         )
         target_ids = str(self.tokenizer.bos_token) + system_response + str(self.tokenizer.eos_token)
         

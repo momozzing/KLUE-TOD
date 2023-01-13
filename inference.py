@@ -153,10 +153,11 @@ with torch.no_grad():
 
         System_response = tokenizer.decode(gen_text, skip_special_tokens=True)
         
-        # image.png = System_response.replace("<sos_r>", "").replace("<eos_context>", "")
+        System_response = System_response.replace("<sos_r>", "").replace("<eos_r>", "")
+        
         gen_result.append(System_response)
         input_text.append(tokenizer.decode(test_input_ids[0], skip_special_tokens=True))
-        label.append(test_target_ids[0].replace("<s>", "").replace("</s>", ""))
+        label.append(test_target_ids[0].replace("<s>", "").replace("</s>", "").replace("<sos_r>", "").replace("<eos_r>", ""))
 
         print("gen_result:" , gen_result)
         print("\t")
@@ -167,9 +168,9 @@ with torch.no_grad():
     gen_df = pd.DataFrame(gen_result, columns = ['gen'])
     all_df = pd.concat([input_df, label_df, gen_df], axis=1)
 
-    all_df.to_csv(f'result/KLUE_TOD_{args.ckpt_name}.csv', sep='\t')
-
     bleu = BLEU()
     print("BLEU_Score", bleu.corpus_score(gen_result, [label]))
+
+    all_df.to_csv(f'result/KLUE_TOD_inference_data.csv', sep='\t')
 
     # wandb.log({"BLEU_Score": bleu.corpus_score(gen_result, [label])})
