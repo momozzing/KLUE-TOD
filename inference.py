@@ -86,7 +86,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "False"
 set_seed(args.seed)
 
 # wandb setup
-# wandb.init(project="KLUE-TOD", name=f"{args.model_name}_inference")
+wandb.init(project="KLUE-TOD", name=f"{args.model_name}_inference")
 
 # load tokenizer
 tokenizer = AutoTokenizer.from_pretrained(args.model_name, bos_token='<s>', eos_token='</s>', unk_token='<unk>',
@@ -173,4 +173,4 @@ with torch.no_grad():
 
     all_df.to_csv(f'result/KLUE_TOD_inference_data.csv', sep='\t')
 
-    # wandb.log({"BLEU_Score": bleu.corpus_score(gen_result, [label])})
+    wandb.log({"BLEU_Score": str(bleu.corpus_score(gen_result, [label]))})
