@@ -30,16 +30,12 @@ domain apdatation을 위한 special token을 사용하였습니다.
 
 ## How to interactive? 
 ```
-1. git clone https://github.com/momozzing/KLUE-TOD.git
+1. cd KLUE-TOD
 
-2. pip install -r requirements.txt
-
-3. cd KLUE-TOD
-
-4. python interactive_all.py
+2. python interactive_all.py
 ```
 
-## result
+## interactive result
 ```
 User: 안녕하세요. 서울 북쪽에 있는 평이 좋은 관광지를 방문하고 싶어요. 랜드마크 타입으로 알아봐주세요. 
 Dialogue history: 안녕하세요. 서울 북쪽에 있는 평이 좋은 관광지를 방문하고 싶어요. 랜드마크 타입으로 알아봐주세요. 
@@ -69,6 +65,19 @@ System :  예약이 되었습니다. 예약 번호는 HJOK4 입니다.
 
 ```
 
+## How to inference? 
+```
+1. cd KLUE-TOD
+
+2. python inference.py
+```
+
+## inference result
+```
+cd result/KLUE_TOD_inference_data.csv
+
+BLEU = 19.72 44.4/24.0/14.8/10.3 (BP = 0.982 ratio = 0.982 hyp_len = 65004 ref_len = 66203)
+```
 
 ## Reference
 
